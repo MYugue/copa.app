@@ -584,6 +584,30 @@ elif page == "🔐 Admin":
     else: st.info("Nenhum participante ainda.")
 
     st.divider()
+    with st.expander("🔑 Resetar senha de participante"):
+        if participants:
+            opt_reset = [f"{p['nickname']} — {p['name']}" for p in participants]
+            sel_reset = st.selectbox("Selecione o participante", opt_reset, key="reset_sel")
+            nova_senha  = st.text_input("Nova senha", key="nova_senha", type="password", placeholder="mínimo 4 caracteres")
+            nova_senha2 = st.text_input("Confirmar nova senha", key="nova_senha2", type="password")
+            if st.button("🔑 Resetar senha", type="primary", key="btn_reset"):
+                if not nova_senha or not nova_senha2:
+                    st.error("Preencha a nova senha.")
+                elif nova_senha != nova_senha2:
+                    st.error("As senhas não coincidem.")
+                elif len(nova_senha) < 4:
+                    st.error("Senha deve ter ao menos 4 caracteres.")
+                else:
+                    nick_reset = sel_reset.split(" — ")[0]
+                    conn = get_conn()
+                    conn.execute("UPDATE participants SET password=? WHERE nickname=?",
+                                 (hash_pw(nova_senha), nick_reset))
+                    conn.commit(); conn.close()
+                    st.success(f"✅ Senha de '{nick_reset}' resetada com sucesso!")
+        else:
+            st.info("Nenhum participante cadastrado ainda.")
+
+    st.divider()
     with st.expander("🗑️ Remover participante"):
         if participants:
             opt = [f"{p['nickname']} — {p['name']}" for p in participants]
