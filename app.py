@@ -17,6 +17,27 @@ DEADLINE = datetime(2026, 6, 10, 23, 59, 0)
 TZ_BR    = pytz.timezone("America/Sao_Paulo")
 
 # ══════════════════════════════════════════════
+#  BANDEIRAS (emoji por seleção)
+# ══════════════════════════════════════════════
+FLAGS = {
+    "México": "🇲🇽", "Coreia do Sul": "🇰🇷", "Rep. Tcheca": "🇨🇿", "África do Sul": "🇿🇦",
+    "Canadá": "🇨🇦", "Catar": "🇶🇦", "Suíça": "🇨🇭", "Bósnia e Herz.": "🇧🇦",
+    "Brasil": "🇧🇷", "Marrocos": "🇲🇦", "Escócia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Haiti": "🇭🇹",
+    "EUA": "🇺🇸", "Austrália": "🇦🇺", "Turquia": "🇹🇷", "Paraguai": "🇵🇾",
+    "Alemanha": "🇩🇪", "Costa do Marfim": "🇨🇮", "Equador": "🇪🇨", "Curaçao": "🇨🇼",
+    "Holanda": "🇳🇱", "Suécia": "🇸🇪", "Japão": "🇯🇵", "Tunísia": "🇹🇳",
+    "Bélgica": "🇧🇪", "Irã": "🇮🇷", "Nova Zelândia": "🇳🇿", "Egito": "🇪🇬",
+    "Espanha": "🇪🇸", "Arábia Saudita": "🇸🇦", "Uruguai": "🇺🇾", "Cabo Verde": "🇨🇻",
+    "França": "🇫🇷", "Iraque": "🇮🇶", "Noruega": "🇳🇴", "Senegal": "🇸🇳",
+    "Argentina": "🇦🇷", "Áustria": "🇦🇹", "Jordânia": "🇯🇴", "Argélia": "🇩🇿",
+    "Portugal": "🇵🇹", "Colômbia": "🇨🇴", "Uzbequistão": "🇺🇿", "R.D. Congo": "🇨🇩",
+    "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Gana": "🇬🇭", "Panamá": "🇵🇦", "Croácia": "🇭🇷",
+}
+
+def flag(team):
+    return FLAGS.get(team, "🏳️")
+
+# ══════════════════════════════════════════════
 #  DADOS DOS JOGOS
 # ══════════════════════════════════════════════
 GROUPS = {
@@ -34,6 +55,12 @@ GROUPS = {
     "L": ["Inglaterra", "Gana", "Panamá", "Croácia"],
 }
 
+GROUP_COLORS = {
+    "A": "#1a6b3a", "B": "#1a5ca8", "C": "#c8a000", "D": "#7b3fa0",
+    "E": "#b33000", "F": "#0077a8", "G": "#3a7a00", "H": "#a04000",
+    "I": "#1a5ca8", "J": "#7b3fa0", "K": "#1a6b3a", "L": "#a04000",
+}
+
 def get_all_matches():
     matches = []
     match_id = 1
@@ -46,6 +73,7 @@ def get_all_matches():
 
 ALL_MATCHES  = get_all_matches()
 MATCH_BY_ID  = {m["id"]: m for m in ALL_MATCHES}
+GROUP_KEYS   = list(GROUPS.keys())
 
 # ══════════════════════════════════════════════
 #  BANCO DE DADOS
@@ -69,12 +97,12 @@ def init_db():
     """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS guesses (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            nickname         TEXT NOT NULL,
-            match_id         INTEGER NOT NULL,
-            home_goals       INTEGER NOT NULL,
-            away_goals       INTEGER NOT NULL,
-            submitted_at     TEXT DEFAULT (datetime('now')),
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            nickname     TEXT NOT NULL,
+            match_id     INTEGER NOT NULL,
+            home_goals   INTEGER NOT NULL,
+            away_goals   INTEGER NOT NULL,
+            submitted_at TEXT DEFAULT (datetime('now')),
             UNIQUE(nickname, match_id)
         )
     """)
@@ -131,7 +159,6 @@ def login_user(nickname, password):
     return dict(row) if row else None
 
 def save_guesses_batch(nickname, guesses_dict):
-    """guesses_dict: {match_id: (home, away)}"""
     conn = get_conn()
     for mid, (h, a) in guesses_dict.items():
         conn.execute("""
@@ -208,17 +235,16 @@ def calc_points(gh, ga, rh, ra):
     return pts, detail
 
 def calc_ranking():
-    results  = get_results()
-    guesses  = get_all_guesses()
-    scores   = {}
-    details  = {}
+    results = get_results()
+    guesses = get_all_guesses()
+    scores, details = {}, {}
     for row in guesses:
         nick = row["nickname"]
         mid  = row["match_id"]
         if mid not in results:
             continue
         pts, det = calc_points(row["home_goals"], row["away_goals"], *results[mid])
-        scores[nick]  = scores.get(nick, 0) + pts
+        scores[nick] = scores.get(nick, 0) + pts
         details.setdefault(nick, []).append({"match_id": mid, "pts": pts, "detail": det})
     return scores, details
 
@@ -229,11 +255,51 @@ st.set_page_config(page_title="Bolão Copa 2026", page_icon="⚽", layout="wide"
 
 st.markdown("""
 <style>
-    .group-pill {
-        display:inline-block;
-        background:#1a6b3a;color:#fff;
-        padding:4px 14px;border-radius:20px;
-        font-weight:600;font-size:14px;margin-bottom:8px;
+    /* Cartão de jogo */
+    .match-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 14px 20px;
+        margin-bottom: 10px;
+        border: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .team-name {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1a1a1a;
+    }
+    .team-flag {
+        font-size: 28px;
+        margin: 0 6px;
+    }
+    .score-display {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1a6b3a;
+        min-width: 40px;
+        text-align: center;
+    }
+    .vs-text {
+        font-size: 13px;
+        color: #aaa;
+        margin: 0 8px;
+    }
+    .group-badge {
+        display: inline-block;
+        padding: 5px 18px;
+        border-radius: 20px;
+        color: white;
+        font-weight: 700;
+        font-size: 15px;
+        margin-bottom: 16px;
+    }
+    .progress-text {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 4px;
     }
     .deadline-box {
         background:#fff3cd;border-left:4px solid #ffc107;
@@ -243,9 +309,21 @@ st.markdown("""
         background:#f8d7da;border-left:4px solid #dc3545;
         padding:10px 14px;border-radius:4px;font-size:14px;margin-bottom:12px;
     }
-    .success-box {
-        background:#d4edda;border-left:4px solid #28a745;
-        padding:10px 14px;border-radius:4px;font-size:14px;margin-bottom:12px;
+    .pts-badge {
+        background: #1a6b3a; color: white;
+        padding: 2px 8px; border-radius: 10px;
+        font-size: 12px; font-weight: 600;
+    }
+    .pts-badge-zero {
+        background: #ccc; color: #555;
+        padding: 2px 8px; border-radius: 10px;
+        font-size: 12px;
+    }
+    div[data-testid="stNumberInput"] input {
+        font-size: 20px !important;
+        font-weight: 700 !important;
+        text-align: center !important;
+        color: #1a6b3a !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -253,12 +331,10 @@ st.markdown("""
 # ══════════════════════════════════════════════
 #  SESSION STATE
 # ══════════════════════════════════════════════
-if "user" not in st.session_state:
-    st.session_state.user = None
-if "admin_logged" not in st.session_state:
-    st.session_state.admin_logged = False
-if "auth_page" not in st.session_state:
-    st.session_state.auth_page = "login"   # "login" | "register"
+if "user"         not in st.session_state: st.session_state.user = None
+if "admin_logged" not in st.session_state: st.session_state.admin_logged = False
+if "auth_page"    not in st.session_state: st.session_state.auth_page = "login"
+if "group_idx"    not in st.session_state: st.session_state.group_idx = 0
 
 # ══════════════════════════════════════════════
 #  SIDEBAR
@@ -271,18 +347,10 @@ with st.sidebar:
             st.session_state.user = None
             st.rerun()
     st.divider()
-
     if st.session_state.user or st.session_state.admin_logged:
-        page = st.radio("Navegação", [
-            "🏠 Início",
-            "📝 Meus Palpites",
-            "🏆 Ranking",
-            "📊 Resultados",
-            "🔐 Admin"
-        ])
+        page = st.radio("Navegação", ["🏠 Início", "📝 Meus Palpites", "🏆 Ranking", "📊 Resultados", "🔐 Admin"])
     else:
         page = "🏠 Início"
-
     st.divider()
     st.markdown("""
     **Pontuação:**
@@ -301,22 +369,18 @@ with st.sidebar:
 # ══════════════════════════════════════════════
 if page == "🏠 Início":
     st.markdown("# ⚽ Bolão Copa do Mundo 2026")
-
     if st.session_state.user:
         u = st.session_state.user
-        st.markdown(f'<div class="success-box">Bem-vindo de volta, <b>{u["name"]}</b>! Use o menu lateral para fazer seus palpites.</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background:#d4edda;border-left:4px solid #28a745;padding:10px 14px;border-radius:4px;margin-bottom:12px;">Bem-vindo de volta, <b>{u["name"]}</b>! Use o menu lateral para fazer seus palpites.</div>', unsafe_allow_html=True)
         scores, _ = calc_ranking()
-        results   = get_results()
+        results    = get_results()
         participants = get_all_participants()
         c1, c2, c3 = st.columns(3)
         c1.metric("👥 Participantes", len(participants))
         c2.metric("⚽ Jogos com resultado", len(results))
         c3.metric("📊 Seus pontos", scores.get(u["nickname"], 0))
-
     else:
         col1, col2 = st.columns([1, 1], gap="large")
-
-        # ── LOGIN ──
         with col1:
             st.markdown("### 🔑 Entrar")
             if st.session_state.auth_page == "login":
@@ -336,17 +400,14 @@ if page == "🏠 Início":
                 if st.button("Criar conta", use_container_width=True):
                     st.session_state.auth_page = "register"
                     st.rerun()
-
-        # ── CADASTRO ──
         with col2:
             st.markdown("### 📋 Criar conta")
             if st.session_state.auth_page == "register":
-                invite  = st.text_input("Código de convite", key="reg_invite", placeholder="código enviado pelo organizador")
-                name_r  = st.text_input("Nome completo",     key="reg_name")
-                nick_r  = st.text_input("Apelido",           key="reg_nick",   placeholder="como aparece no ranking")
-                pw_r    = st.text_input("Senha",             key="reg_pw",     type="password")
-                pw_r2   = st.text_input("Confirmar senha",   key="reg_pw2",    type="password")
-
+                invite = st.text_input("Código de convite", key="reg_invite", placeholder="código enviado pelo organizador")
+                name_r = st.text_input("Nome completo",     key="reg_name")
+                nick_r = st.text_input("Apelido",           key="reg_nick",  placeholder="como aparece no ranking")
+                pw_r   = st.text_input("Senha",             key="reg_pw",    type="password")
+                pw_r2  = st.text_input("Confirmar senha",   key="reg_pw2",   type="password")
                 if st.button("Cadastrar", use_container_width=True, type="primary"):
                     if not all([invite, name_r, nick_r, pw_r, pw_r2]):
                         st.error("Preencha todos os campos.")
@@ -362,7 +423,6 @@ if page == "🏠 Início":
                             user = login_user(nick_r, pw_r)
                             st.session_state.user = user
                             st.session_state.auth_page = "login"
-                            st.success(msg)
                             st.rerun()
                         else:
                             st.error(msg)
@@ -374,85 +434,133 @@ if page == "🏠 Início":
                 st.info("Clique em **Criar conta** ao lado para se cadastrar com seu código de convite.")
 
 # ══════════════════════════════════════════════
-#  PÁGINA: MEUS PALPITES
+#  PÁGINA: MEUS PALPITES — grupo a grupo
 # ══════════════════════════════════════════════
 elif page == "📝 Meus Palpites":
     if not st.session_state.user:
         st.warning("Faça login para acessar seus palpites.")
         st.stop()
 
-    user    = st.session_state.user
-    locked  = is_deadline_passed()
+    user   = st.session_state.user
+    locked = is_deadline_passed()
 
-    st.markdown(f"# 📝 Palpites de **{user['nickname']}**")
+    st.markdown(f"# 📝 Meus Palpites")
 
     if locked:
-        st.markdown('<div class="locked-box">🔒 <b>Prazo encerrado.</b> Os palpites estão bloqueados. Você ainda pode consultar o que enviou.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="locked-box">🔒 <b>Prazo encerrado.</b> Os palpites estão bloqueados.</div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="deadline-box">⏰ Preencha todos os jogos e clique em <b>Confirmar e Salvar</b> no final. Prazo: <b>{deadline_str()}</b></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="deadline-box">⏰ Preencha o placar de cada jogo e salve grupo a grupo. Prazo: <b>{deadline_str()}</b></div>', unsafe_allow_html=True)
 
     my_guesses = get_guesses(user["nickname"])
     results    = get_results()
 
-    # Coleta todos os palpites em um dicionário temporário por grupo
-    all_inputs = {}
+    # ── Progresso geral ──
+    total_matches  = len(ALL_MATCHES)
+    filled_matches = len(my_guesses)
+    pct = int(filled_matches / total_matches * 100)
+    st.markdown(f'<div class="progress-text">Progresso: <b>{filled_matches}/{total_matches}</b> jogos preenchidos</div>', unsafe_allow_html=True)
+    st.progress(pct / 100)
+    st.markdown("")
 
-    for g, teams in GROUPS.items():
-        matches_in_group = [m for m in ALL_MATCHES if m["group"] == g]
-        with st.expander(f"🏟️ Grupo {g}  —  {' · '.join(teams)}", expanded=False):
-            for match in matches_in_group:
-                mid  = match["id"]
-                existing = my_guesses.get(mid, (0, 0))
-                real     = results.get(mid)
+    # ── Navegação entre grupos ──
+    idx = st.session_state.group_idx
+    g   = GROUP_KEYS[idx]
+    color = GROUP_COLORS[g]
+    teams = GROUPS[g]
+    matches_in_group = [m for m in ALL_MATCHES if m["group"] == g]
 
-                c1, c2, c3, c4, c5 = st.columns([3, 1.2, 0.3, 1.2, 3])
-                with c1:
-                    st.markdown(f"<div style='text-align:right;padding-top:6px;font-size:13px;'>{match['home']}</div>", unsafe_allow_html=True)
-                with c2:
-                    h = st.number_input("", min_value=0, max_value=20,
-                        value=int(existing[0]),
-                        key=f"g_h_{mid}",
-                        label_visibility="collapsed",
-                        disabled=locked)
-                with c3:
-                    st.markdown("<div style='text-align:center;padding-top:6px;color:#aaa;'>×</div>", unsafe_allow_html=True)
-                with c4:
-                    a = st.number_input("", min_value=0, max_value=20,
-                        value=int(existing[1]),
-                        key=f"g_a_{mid}",
-                        label_visibility="collapsed",
-                        disabled=locked)
-                with c5:
-                    st.markdown(f"<div style='padding-top:6px;font-size:13px;'>{match['away']}</div>", unsafe_allow_html=True)
+    # Cabeçalho do grupo
+    st.markdown(f'<div class="group-badge" style="background:{color}">Grupo {g} &nbsp;·&nbsp; {" · ".join(teams)}</div>', unsafe_allow_html=True)
 
-                # Se já há resultado, mostra pontuação
-                if real:
-                    pts, det = calc_points(h, a, real[0], real[1])
-                    det_str = " | ".join(det) if det else "0 pontos"
-                    st.markdown(f"<div style='text-align:center;font-size:11px;color:#777;margin-bottom:4px;'>Resultado real: {real[0]}×{real[1]} — {det_str}</div>", unsafe_allow_html=True)
+    # ── Jogos do grupo ──
+    group_inputs = {}
+    for match in matches_in_group:
+        mid      = match["id"]
+        home     = match["home"]
+        away     = match["away"]
+        existing = my_guesses.get(mid, (0, 0))
+        real     = results.get(mid)
 
-                all_inputs[mid] = (h, a)
+        # Layout: flag + nome | input | × | input | nome + flag
+        c1, c2, c3, c4, c5 = st.columns([4, 1.5, 0.5, 1.5, 4])
+        with c1:
+            st.markdown(
+                f"<div style='text-align:right; padding-top:8px; font-size:15px; font-weight:600;'>"
+                f"{home} &nbsp; {flag(home)}</div>",
+                unsafe_allow_html=True
+            )
+        with c2:
+            h = st.number_input("", min_value=0, max_value=20,
+                value=int(existing[0]),
+                key=f"h_{mid}",
+                label_visibility="collapsed",
+                disabled=locked)
+        with c3:
+            st.markdown("<div style='text-align:center; padding-top:10px; font-size:18px; color:#aaa;'>×</div>", unsafe_allow_html=True)
+        with c4:
+            a = st.number_input("", min_value=0, max_value=20,
+                value=int(existing[1]),
+                key=f"a_{mid}",
+                label_visibility="collapsed",
+                disabled=locked)
+        with c5:
+            st.markdown(
+                f"<div style='padding-top:8px; font-size:15px; font-weight:600;'>"
+                f"{flag(away)} &nbsp; {away}</div>",
+                unsafe_allow_html=True
+            )
+
+        # Resultado real (se já disponível)
+        if real:
+            pts, det = calc_points(h, a, real[0], real[1])
+            det_str  = " | ".join(det) if det else "0 pontos"
+            badge    = f'<span class="pts-badge">{pts} pts</span>' if pts > 0 else f'<span class="pts-badge-zero">0 pts</span>'
+            st.markdown(
+                f"<div style='text-align:center; font-size:12px; color:#777; margin-bottom:8px;'>"
+                f"Resultado real: <b>{real[0]}×{real[1]}</b> — {det_str} {badge}</div>",
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
+
+        group_inputs[mid] = (h, a)
+
+    # ── Botão salvar ──
+    if not locked:
+        if st.button(f"💾 Salvar palpites do Grupo {g}", type="primary", use_container_width=True):
+            save_guesses_batch(user["nickname"], group_inputs)
+            st.success(f"✅ Palpites do Grupo {g} salvos!")
 
     st.divider()
-    if not locked:
-        col1, col2 = st.columns([3, 1])
-        with col2:
-            if st.button("✅ Confirmar e Salvar TODOS os palpites", type="primary", use_container_width=True):
-                save_guesses_batch(user["nickname"], all_inputs)
-                st.success(f"✅ {len(all_inputs)} palpites salvos com sucesso!")
-                st.balloons()
-    else:
-        total_sent = len(my_guesses)
-        st.info(f"Você enviou palpites para **{total_sent}** de **{len(ALL_MATCHES)}** jogos.")
+
+    # ── Navegação anterior / próximo ──
+    col_prev, col_info, col_next = st.columns([1, 2, 1])
+    with col_prev:
+        if idx > 0:
+            if st.button("◀ Grupo anterior", use_container_width=True):
+                st.session_state.group_idx -= 1
+                st.rerun()
+    with col_info:
+        st.markdown(
+            f"<div style='text-align:center; padding-top:8px; color:#666; font-size:14px;'>"
+            f"Grupo {idx+1} de {len(GROUP_KEYS)}</div>",
+            unsafe_allow_html=True
+        )
+    with col_next:
+        if idx < len(GROUP_KEYS) - 1:
+            if st.button("Próximo grupo ▶", use_container_width=True):
+                st.session_state.group_idx += 1
+                st.rerun()
+        else:
+            st.markdown("<div style='text-align:center; padding-top:8px; color:#1a6b3a; font-size:13px;'>✅ Último grupo!</div>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════
 #  PÁGINA: RANKING
 # ══════════════════════════════════════════════
 elif page == "🏆 Ranking":
     st.markdown("# 🏆 Ranking do Bolão")
-
-    scores, details = calc_ranking()
-    participants    = get_all_participants()
+    scores, details  = calc_ranking()
+    participants     = get_all_participants()
 
     if not participants:
         st.info("Nenhum participante cadastrado ainda.")
@@ -468,8 +576,7 @@ elif page == "🏆 Ranking":
         medal = medals[i] if i < 3 else f"{i+1}º"
         rows.append({"Pos": medal, "Apelido": nick, "Nome": nick_to_name.get(nick, ""), "Pontos": pts})
 
-    df = pd.DataFrame(rows)
-    st.dataframe(df, hide_index=True, use_container_width=True,
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True,
                  column_config={
                      "Pos":    st.column_config.TextColumn(width="small"),
                      "Pontos": st.column_config.NumberColumn(format="%d pts"),
@@ -482,21 +589,20 @@ elif page == "🏆 Ranking":
     selected = st.selectbox("Escolha um participante", options)
 
     if selected:
-        sel_nick    = selected.split(" (")[0]
-        my_guesses  = get_guesses(sel_nick)
-        total       = 0
+        sel_nick   = selected.split(" (")[0]
+        my_guesses = get_guesses(sel_nick)
+        total      = 0
         detail_rows = []
         for mid, (rh, ra) in results.items():
             match = MATCH_BY_ID.get(mid)
-            if not match:
-                continue
+            if not match: continue
             if mid in my_guesses:
                 gh, ga   = my_guesses[mid]
                 pts, det = calc_points(gh, ga, rh, ra)
                 total   += pts
                 detail_rows.append({
-                    "Grupo":   f"Grupo {match['group']}",
-                    "Jogo":    f"{match['home']} × {match['away']}",
+                    "Grupo": f"Grupo {match['group']}",
+                    "Jogo":  f"{flag(match['home'])} {match['home']} × {match['away']} {flag(match['away'])}",
                     "Palpite": f"{gh}×{ga}",
                     "Real":    f"{rh}×{ra}",
                     "Pontos":  pts,
@@ -504,14 +610,13 @@ elif page == "🏆 Ranking":
                 })
             else:
                 detail_rows.append({
-                    "Grupo":   f"Grupo {match['group']}",
-                    "Jogo":    f"{match['home']} × {match['away']}",
+                    "Grupo": f"Grupo {match['group']}",
+                    "Jogo":  f"{flag(match['home'])} {match['home']} × {match['away']} {flag(match['away'])}",
                     "Palpite": "—",
                     "Real":    f"{rh}×{ra}",
                     "Pontos":  0,
                     "Detalhe": "Sem palpite"
                 })
-
         if detail_rows:
             st.markdown(f"**Total: {total} pontos**")
             st.dataframe(pd.DataFrame(detail_rows), hide_index=True, use_container_width=True)
@@ -524,9 +629,8 @@ elif page == "🏆 Ranking":
 elif page == "📊 Resultados":
     st.markdown("# 📊 Resultados dos Jogos")
     results = get_results()
-
     if not results:
-        st.info("Nenhum resultado lançado ainda. Aguarde o admin lançar os placares.")
+        st.info("Nenhum resultado lançado ainda.")
     else:
         rows = []
         for mid, (rh, ra) in sorted(results.items()):
@@ -537,9 +641,9 @@ elif page == "📊 Resultados":
                 else:         res = "🔵 Empate"
                 rows.append({
                     "Grupo": f"Grupo {match['group']}",
-                    "Casa":  match["home"],
+                    "Casa":  f"{flag(match['home'])} {match['home']}",
                     "Placar": f"{rh} × {ra}",
-                    "Fora":  match["away"],
+                    "Fora":  f"{flag(match['away'])} {match['away']}",
                     "Vencedor": res,
                 })
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
@@ -565,7 +669,6 @@ elif page == "🔐 Admin":
         st.session_state.admin_logged = False
         st.rerun()
 
-    # ── Info do bolão ──
     st.divider()
     st.markdown("### ⚙️ Configurações atuais")
     col1, col2, col3 = st.columns(3)
@@ -573,34 +676,32 @@ elif page == "🔐 Admin":
     col2.info(f"**Prazo de palpites:**\n\n{deadline_str()}")
     col3.info(f"**Status:**\n\n{'🔒 Encerrado' if is_deadline_passed() else '🟢 Aberto'}")
 
-    # ── Lançar resultados ──
     st.divider()
     st.markdown("### ⚽ Lançar Resultados")
-    results   = get_results()
-    group_sel = st.selectbox("Selecione o grupo", list(GROUPS.keys()), format_func=lambda g: f"Grupo {g}")
-    matches_in_group = [m for m in ALL_MATCHES if m["group"] == group_sel]
+    results      = get_results()
+    group_sel    = st.selectbox("Selecione o grupo", GROUP_KEYS, format_func=lambda g: f"Grupo {g}")
+    matches_in_g = [m for m in ALL_MATCHES if m["group"] == group_sel]
 
-    for match in matches_in_group:
+    for match in matches_in_g:
         mid      = match["id"]
         existing = results.get(mid, (0, 0))
-        c1, c2, c3, c4, c5, c6 = st.columns([3, 1.2, 0.3, 1.2, 3, 1.5])
+        c1, c2, c3, c4, c5, c6 = st.columns([4, 1.5, 0.5, 1.5, 4, 1.5])
         with c1:
-            st.markdown(f"<div style='text-align:right;padding-top:6px;font-size:13px;'>{match['home']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:right;padding-top:8px;font-size:14px;font-weight:600;'>{match['home']} {flag(match['home'])}</div>", unsafe_allow_html=True)
         with c2:
             rh = st.number_input("", min_value=0, max_value=20, value=int(existing[0]), key=f"r_h_{mid}", label_visibility="collapsed")
         with c3:
-            st.markdown("<div style='text-align:center;padding-top:6px;color:#aaa;'>×</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align:center;padding-top:10px;color:#aaa;font-size:18px;'>×</div>", unsafe_allow_html=True)
         with c4:
             ra = st.number_input("", min_value=0, max_value=20, value=int(existing[1]), key=f"r_a_{mid}", label_visibility="collapsed")
         with c5:
-            st.markdown(f"<div style='padding-top:6px;font-size:13px;'>{match['away']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='padding-top:8px;font-size:14px;font-weight:600;'>{flag(match['away'])} {match['away']}</div>", unsafe_allow_html=True)
         with c6:
-            if st.button("💾 Salvar", key=f"sr_{mid}"):
+            if st.button("💾", key=f"sr_{mid}", help="Salvar resultado"):
                 save_result(mid, rh, ra)
                 st.success("Salvo!")
                 st.rerun()
 
-    # ── Participantes ──
     st.divider()
     st.markdown("### 👥 Participantes cadastrados")
     participants = get_all_participants()
@@ -615,7 +716,6 @@ elif page == "🔐 Admin":
     else:
         st.info("Nenhum participante ainda.")
 
-    # ── Remover participante ──
     st.divider()
     with st.expander("🗑️ Remover participante"):
         if participants:
@@ -628,5 +728,5 @@ elif page == "🔐 Admin":
                 conn.execute("DELETE FROM participants WHERE nickname=?", (nick,))
                 conn.commit()
                 conn.close()
-                st.success(f"Participante '{nick}' removido!")
+                st.success(f"'{nick}' removido!")
                 st.rerun()
