@@ -1,0 +1,175 @@
+import streamlit as st
+import pandas as pd
+
+st.set_page_config(page_title="Copa do Mundo 2026", page_icon="⚽", layout="wide")
+
+GROUPS = {
+    "A": ["México", "Coreia do Sul", "Rep. Tcheca", "África do Sul"],
+    "B": ["Canadá", "Catar", "Suíça", "Bósnia e Herz."],
+    "C": ["Brasil", "Marrocos", "Escócia", "Haiti"],
+    "D": ["EUA", "Austrália", "Turquia", "Paraguai"],
+    "E": ["Alemanha", "Costa do Marfim", "Equador", "Curaçao"],
+    "F": ["Holanda", "Suécia", "Japão", "Tunísia"],
+    "G": ["Bélgica", "Irã", "Nova Zelândia", "Egito"],
+    "H": ["Espanha", "Arábia Saudita", "Uruguai", "Cabo Verde"],
+    "I": ["França", "Iraque", "Noruega", "Senegal"],
+    "J": ["Argentina", "Áustria", "Jordânia", "Argélia"],
+    "K": ["Portugal", "Colômbia", "Uzbequistão", "R.D. Congo"],
+    "L": ["Inglaterra", "Gana", "Panamá", "Croácia"],
+}
+
+GROUP_COLORS = {
+    "A": "#1a6b3a", "B": "#1a5ca8", "C": "#c8a000", "D": "#7b3fa0",
+    "E": "#b33000", "F": "#0077a8", "G": "#3a7a00", "H": "#a04000",
+    "I": "#1a5ca8", "J": "#7b3fa0", "K": "#1a6b3a", "L": "#a04000",
+}
+
+def get_matches(teams):
+    matches = []
+    for i in range(len(teams)):
+        for j in range(i + 1, len(teams)):
+            matches.append((i, j))
+    return matches
+
+def calc_standings(teams, scores):
+    st_data = {t: {"pts": 0, "j": 0, "v": 0, "e": 0, "d": 0, "gf": 0, "ga": 0} for t in teams}
+    matches = get_matches(teams)
+    for idx, (i, j) in enumerate(matches):
+        key = f"{i}_{j}"
+        if key not in scores:
+            continue
+        h, a = scores[key]
+        if h is None or a is None:
+            continue
+        t1, t2 = teams[i], teams[j]
+        st_data[t1]["j"] += 1; st_data[t2]["j"] += 1
+        st_data[t1]["gf"] += h; st_data[t1]["ga"] += a
+        st_data[t2]["gf"] += a; st_data[t2]["ga"] += h
+        if h > a:
+            st_data[t1]["pts"] += 3; st_data[t1]["v"] += 1; st_data[t2]["d"] += 1
+        elif h < a:
+            st_data[t2]["pts"] += 3; st_data[t2]["v"] += 1; st_data[t1]["d"] += 1
+        else:
+            st_data[t1]["pts"] += 1; st_data[t1]["e"] += 1
+            st_data[t2]["pts"] += 1; st_data[t2]["e"] += 1
+
+    sorted_teams = sorted(
+        teams,
+        key=lambda t: (
+            -st_data[t]["pts"],
+            -(st_data[t]["gf"] - st_data[t]["ga"]),
+            -st_data[t]["gf"],
+        )
+    )
+    return sorted_teams, st_data
+
+# Init session state
+if "scores" not in st.session_state:
+    st.session_state.scores = {g: {} for g in GROUPS}
+
+# ─── Header ───────────────────────────────────────────────────────────────────
+st.markdown("""
+<div style='text-align:center; padding: 1rem 0 0.5rem;'>
+  <span style='background:#1a6b3a;color:#fff;padding:4px 16px;border-radius:20px;font-size:13px;font-weight:600;'>Copa do Mundo 2026</span>
+  <h1 style='margin:8px 0 4px; font-size:26px;'>⚽ Tabela da Primeira Fase</h1>
+  <p style='color:#888; font-size:14px;'>Preencha os placares e acompanhe a classificação em tempo real</p>
+</div>
+""", unsafe_allow_html=True)
+
+st.divider()
+
+# ─── Groups ────────────────────────────────────────────────────────────────────
+group_keys = list(GROUPS.keys())
+cols_per_row = 3
+
+for row_start in range(0, len(group_keys), cols_per_row):
+    row_groups = group_keys[row_start:row_start + cols_per_row]
+    cols = st.columns(cols_per_row)
+
+    for col_idx, g in enumerate(row_groups):
+        with cols[col_idx]:
+            color = GROUP_COLORS[g]
+            teams = GROUPS[g]
+            matches = get_matches(teams)
+
+            st.markdown(f"""
+            <div style='background:{color};color:#fff;padding:6px 14px;border-radius:8px;
+                        font-weight:600;font-size:14px;margin-bottom:10px;'>
+              🏆 Grupo {g}
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Match inputs
+            for idx, (i, j) in enumerate(matches):
+                t1, t2 = teams[i], teams[j]
+                key = f"{i}_{j}"
+                existing = st.session_state.scores[g].get(key, (None, None))
+
+                c1, c2, c3, c4, c5 = st.columns([3, 1.2, 0.4, 1.2, 3])
+                with c1:
+                    st.markdown(f"<div style='text-align:right;font-size:12px;padding-top:6px;'>{t1}</div>",
+                                unsafe_allow_html=True)
+                with c2:
+                    h = st.number_input("", min_value=0, max_value=20,
+                        value=int(existing[0]) if existing[0] is not None else 0,
+                        key=f"h_{g}_{idx}", label_visibility="collapsed")
+                with c3:
+                    st.markdown("<div style='text-align:center;padding-top:6px;font-size:12px;color:#aaa;'>×</div>",
+                                unsafe_allow_html=True)
+                with c4:
+                    a = st.number_input("", min_value=0, max_value=20,
+                        value=int(existing[1]) if existing[1] is not None else 0,
+                        key=f"a_{g}_{idx}", label_visibility="collapsed")
+                with c5:
+                    st.markdown(f"<div style='font-size:12px;padding-top:6px;'>{t2}</div>",
+                                unsafe_allow_html=True)
+
+                st.session_state.scores[g][key] = (h, a)
+
+            # Standings
+            sorted_teams, st_data = calc_standings(teams, st.session_state.scores[g])
+            rows = []
+            for pos, t in enumerate(sorted_teams):
+                d = st_data[t]
+                marker = "🟢" if pos < 2 else "⚪"
+                rows.append({
+                    "": marker,
+                    "Seleção": t,
+                    "J": d["j"],
+                    "V": d["v"],
+                    "E": d["e"],
+                    "D": d["d"],
+                    "Pts": d["pts"],
+                    "SG": d["gf"] - d["ga"],
+                })
+            df = pd.DataFrame(rows)
+            st.dataframe(df, hide_index=True, use_container_width=True,
+                         column_config={"": st.column_config.TextColumn(width="small")})
+
+    st.divider()
+
+# ─── Classified Section ────────────────────────────────────────────────────────
+st.markdown("### 🎯 Classificados para as Oitavas de Final")
+
+classified = []
+for g in GROUPS:
+    teams = GROUPS[g]
+    sorted_t, _ = calc_standings(teams, st.session_state.scores[g])
+    classified.append({"Grupo": f"Grupo {g}", "1º Lugar": sorted_t[0], "2º Lugar": sorted_t[1]})
+
+df_class = pd.DataFrame(classified)
+
+col1, col2 = st.columns(2)
+half = len(classified) // 2
+with col1:
+    st.dataframe(df_class.iloc[:half], hide_index=True, use_container_width=True)
+with col2:
+    st.dataframe(df_class.iloc[half:], hide_index=True, use_container_width=True)
+
+# Reset
+st.divider()
+if st.button("🔄 Limpar todos os resultados"):
+    st.session_state.scores = {g: {} for g in GROUPS}
+    st.rerun()
+
+st.markdown("<div style='text-align:center;color:#aaa;font-size:12px;padding:1rem 0;'>Copa do Mundo 2026 — Tabela interativa</div>", unsafe_allow_html=True)
