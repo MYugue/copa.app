@@ -524,8 +524,7 @@ elif page == "📊 Resultados":
         st.stop()
 
     user = st.session_state.user
-    st.markdown(f"# 📊 Meus Palpites Salvos")
-    st.markdown(f"Confira abaixo tudo que você salvou, **{user['nickname']}**.")
+    st.markdown(f"# 📊 Meus Palpites Salvos — **{user['nickname']}**")
 
     my_guesses = get_guesses(user["nickname"])
     results    = get_results()
@@ -534,80 +533,185 @@ elif page == "📊 Resultados":
         st.info("Você ainda não salvou nenhum palpite. Vá em 📝 Meus Palpites para preencher.")
         st.stop()
 
-    for g, teams in GROUPS.items():
-        matches_in_group = [m for m in ALL_MATCHES if m["group"] == g]
-        color = GROUP_COLORS[g]
+    import json
+    # Monta dicionário de palpites e resultados para o HTML
+    palpites_data = {}
+    resultados_data = {}
 
-        # Verifica se tem algum palpite neste grupo
-        group_guesses = [m for m in matches_in_group if m["id"] in my_guesses]
-        if not group_guesses:
-            continue
+    for mid, (gh, ga) in my_guesses.items():
+        match = MATCH_BY_ID.get(mid)
+        if match:
+            g = match["group"]
+            palpites_data.setdefault(g, {})
+            palpites_data[g][f"{match['home']}|{match['away']}"] = [gh, ga]
 
-        st.markdown(
-            f'<div style="background:{color};color:#fff;display:inline-block;'
-            f'padding:4px 16px;border-radius:20px;font-weight:700;font-size:14px;'
-            f'margin:14px 0 8px;">Grupo {g}</div>',
-            unsafe_allow_html=True
-        )
+    for mid, (rh, ra) in results.items():
+        match = MATCH_BY_ID.get(mid)
+        if match:
+            g = match["group"]
+            resultados_data.setdefault(g, {})
+            resultados_data[g][f"{match['home']}|{match['away']}"] = [rh, ra]
 
-        for match in matches_in_group:
-            mid  = match["id"]
-            if mid not in my_guesses:
-                continue
-
-            gh, ga = my_guesses[mid]
-            real   = results.get(mid)
-
-            c1, c2, c3, c4, c5 = st.columns([3, 1, 0.3, 1, 3])
-            with c1:
-                st.markdown(
-                    f"<div style='text-align:right;padding-top:6px;font-size:14px;font-weight:600;'>"
-                    f"{match['home']} &nbsp; {flag_img(match['home'], 26)}</div>",
-                    unsafe_allow_html=True)
-            with c2:
-                st.markdown(
-                    f"<div style='text-align:center;padding-top:4px;"
-                    f"font-size:22px;font-weight:700;color:#1a6b3a;'>{gh}</div>",
-                    unsafe_allow_html=True)
-            with c3:
-                st.markdown(
-                    "<div style='text-align:center;padding-top:8px;color:#aaa;'>×</div>",
-                    unsafe_allow_html=True)
-            with c4:
-                st.markdown(
-                    f"<div style='text-align:center;padding-top:4px;"
-                    f"font-size:22px;font-weight:700;color:#1a6b3a;'>{ga}</div>",
-                    unsafe_allow_html=True)
-            with c5:
-                st.markdown(
-                    f"<div style='padding-top:6px;font-size:14px;font-weight:600;'>"
-                    f"{flag_img(match['away'], 26)} &nbsp; {match['away']}</div>",
-                    unsafe_allow_html=True)
-
-            # Se resultado real já lançado, mostra pontuação
-            if real:
-                pts, det = calc_points(gh, ga, real[0], real[1])
-                det_str  = " | ".join(det) if det else "0 pontos"
-                badge    = f'<span style="background:#1a6b3a;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;">{pts} pts</span>' if pts else '<span style="background:#ddd;color:#777;padding:2px 8px;border-radius:8px;font-size:11px;">0 pts</span>'
-                st.markdown(
-                    f"<div style='text-align:center;font-size:12px;color:#777;margin-bottom:4px;'>"
-                    f"Resultado real: <b>{real[0]}×{real[1]}</b> — {det_str} {badge}</div>",
-                    unsafe_allow_html=True)
-
-        st.markdown("<hr style='margin:8px 0;border:none;border-top:1px solid #eee;'>", unsafe_allow_html=True)
-
-    # Resumo total
-    st.divider()
     scores, _ = calc_ranking()
-    total = scores.get(user["nickname"], 0)
+    total_pts  = scores.get(user["nickname"], 0)
     total_salvos = len(my_guesses)
-    c1, c2 = st.columns(2)
-    c1.metric("📝 Palpites salvos", f"{total_salvos} / {len(ALL_MATCHES)}")
-    c2.metric("🏆 Pontos acumulados", total)
 
-# ══════════════════════════════════════════════
-#  ADMIN
-# ══════════════════════════════════════════════
+    st.markdown(f"📝 **{total_salvos}/{len(ALL_MATCHES)}** palpites salvos &nbsp;|&nbsp; 🏆 **{total_pts} pontos** acumulados")
+
+    palpites_json  = json.dumps(palpites_data,  ensure_ascii=False)
+    resultados_json = json.dumps(resultados_data, ensure_ascii=False)
+
+    html = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#fff;padding:8px}
+.groups-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:900px){.groups-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:580px){.groups-grid{grid-template-columns:1fr}}
+.group-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden}
+.group-header{padding:6px 10px}
+.group-label{font-size:12px;font-weight:700;color:#fff;padding:2px 10px;border-radius:10px;display:inline-block}
+.matches{padding:2px 8px 4px}
+.match-row{display:grid;grid-template-columns:1fr 26px 10px 26px 1fr;align-items:center;gap:3px;padding:4px 0;border-bottom:1px solid #f5f5f5}
+.match-row:last-child{border-bottom:none}
+.team{font-size:11px;color:#222;font-weight:500}
+.team.right{text-align:right}
+.score-box{display:flex;align-items:center;justify-content:center}
+.score-val{width:24px;height:22px;text-align:center;font-size:13px;font-weight:700;border:1px solid #ddd;border-radius:4px;background:#f8f8f8;color:#aaa;display:flex;align-items:center;justify-content:center}
+.score-val.saved{background:#e8f5e9;border-color:#1a6b3a;color:#1a6b3a}
+.score-val.correct{background:#1a6b3a;border-color:#1a6b3a;color:#fff}
+.vs{font-size:9px;color:#ccc;text-align:center}
+.pts-chip{font-size:9px;text-align:center;padding:1px 0;color:#1a6b3a;font-weight:700}
+.pts-chip.zero{color:#ccc}
+.no-guess{font-size:10px;color:#ccc;text-align:center;padding:4px 0;font-style:italic}
+.standings{padding:3px 8px 8px;background:#fafafa;border-top:1px solid #f0f0f0}
+.standings-title{font-size:9px;color:#aaa;margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+.stand-row{display:grid;grid-template-columns:14px 1fr 20px 20px 20px 20px 20px;align-items:center;gap:2px;font-size:10px;padding:1px 0;color:#777}
+.stand-row.header-row{font-size:9px;color:#bbb}
+.stand-row .pos{font-weight:700;color:#333}
+.stand-row .tname{color:#333;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.classified{background:rgba(26,107,58,.08);border-radius:3px}
+.classified .pos{color:#1a6b3a}
+.num{text-align:center}
+.legend{font-size:11px;color:#888;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:4px}
+.swatch{width:14px;height:14px;border-radius:3px;display:inline-block}
+</style></head><body>
+<div class="legend">
+  <div class="leg-item"><div class="swatch" style="background:#e8f5e9;border:1px solid #1a6b3a"></div> Palpite salvo</div>
+  <div class="leg-item"><div class="swatch" style="background:#f8f8f8;border:1px solid #ddd"></div> Sem palpite</div>
+  <div class="leg-item"><div class="swatch" style="background:#1a6b3a"></div> Placar exato!</div>
+</div>
+<div class="groups-grid" id="groups-grid"></div>
+<script>
+const PALPITES   = __PALPITES__;
+const RESULTADOS = __RESULTADOS__;
+const GROUPS = {
+  A:{color:'#1a6b3a',teams:['México','Coreia do Sul','Rep. Tcheca','África do Sul']},
+  B:{color:'#1a5ca8',teams:['Canadá','Catar','Suíça','Bósnia e Herz.']},
+  C:{color:'#c8a000',teams:['Brasil','Marrocos','Escócia','Haiti']},
+  D:{color:'#7b3fa0',teams:['EUA','Austrália','Turquia','Paraguai']},
+  E:{color:'#b33000',teams:['Alemanha','Costa do Marfim','Equador','Curaçao']},
+  F:{color:'#0077a8',teams:['Holanda','Suécia','Japão','Tunísia']},
+  G:{color:'#3a7a00',teams:['Bélgica','Irã','Nova Zelândia','Egito']},
+  H:{color:'#a04000',teams:['Espanha','Arábia Saudita','Uruguai','Cabo Verde']},
+  I:{color:'#1a5ca8',teams:['França','Iraque','Noruega','Senegal']},
+  J:{color:'#7b3fa0',teams:['Argentina','Áustria','Jordânia','Argélia']},
+  K:{color:'#1a6b3a',teams:['Portugal','Colômbia','Uzbequistão','R.D. Congo']},
+  L:{color:'#a04000',teams:['Inglaterra','Gana','Panamá','Croácia']}
+};
+function getMatches(teams){
+  const m=[];
+  for(let i=0;i<teams.length;i++)
+    for(let j=i+1;j<teams.length;j++) m.push([i,j]);
+  return m;
+}
+function getResult(tipo, g, home, away){
+  const d = tipo==='p' ? PALPITES : RESULTADOS;
+  if(!d[g]) return null;
+  return d[g][home+'|'+away]||null;
+}
+function calcResult(h,a){return h>a?'H':(h<a?'A':'E')}
+function calcPts(gh,ga,rh,ra){
+  if(gh===rh&&ga===ra) return 5;
+  if(calcResult(gh,ga)===calcResult(rh,ra)) return 3;
+  if(gh===rh||ga===ra) return 1;
+  return 0;
+}
+function calcStandings(g){
+  const teams=GROUPS[g].teams;
+  const st=teams.map(t=>({name:t,pts:0,gf:0,ga:0,j:0,v:0,e:0,d:0}));
+  getMatches(teams).forEach(m=>{
+    const p=getResult('p',g,teams[m[0]],teams[m[1]]);
+    if(!p) return;
+    const hv=p[0],av=p[1];
+    st[m[0]].j++;st[m[1]].j++;
+    st[m[0]].gf+=hv;st[m[0]].ga+=av;
+    st[m[1]].gf+=av;st[m[1]].ga+=hv;
+    if(hv>av){st[m[0]].pts+=3;st[m[0]].v++;st[m[1]].d++;}
+    else if(hv<av){st[m[1]].pts+=3;st[m[1]].v++;st[m[0]].d++;}
+    else{st[m[0]].pts++;st[m[1]].pts++;st[m[0]].e++;st[m[1]].e++;}
+  });
+  st.forEach(t=>t.gd=t.gf-t.ga);
+  st.sort((a,b)=>b.pts-a.pts||(b.gd-a.gd)||b.gf-a.gf||a.name.localeCompare(b.name));
+  return st;
+}
+function renderGroup(g){
+  const data=GROUPS[g];
+  const st=calcStandings(g);
+  const matchesHtml=getMatches(data.teams).map(m=>{
+    const home=data.teams[m[0]],away=data.teams[m[1]];
+    const p=getResult('p',g,home,away);
+    const r=getResult('r',g,home,away);
+    if(!p){
+      return `<div class="match-row">
+        <span class="team right">${home}</span>
+        <div class="score-box"><div class="score-val">—</div></div>
+        <span class="vs">×</span>
+        <div class="score-box"><div class="score-val">—</div></div>
+        <span class="team">${away}</span>
+      </div>`;
+    }
+    let cls='saved', ptsHtml='';
+    if(r){
+      const pts=calcPts(p[0],p[1],r[0],r[1]);
+      if(p[0]===r[0]&&p[1]===r[1]) cls='correct';
+      ptsHtml=`<div class="pts-chip ${pts===0?'zero':''}">${pts>0?'+'+pts+'pts':'0pts'} | real:${r[0]}×${r[1]}</div>`;
+    }
+    return `<div class="match-row" style="flex-direction:column;display:block;padding:4px 0;border-bottom:1px solid #f5f5f5">
+      <div style="display:grid;grid-template-columns:1fr 26px 10px 26px 1fr;align-items:center;gap:3px">
+        <span class="team right">${home}</span>
+        <div class="score-box"><div class="score-val ${cls}">${p[0]}</div></div>
+        <span class="vs">×</span>
+        <div class="score-box"><div class="score-val ${cls}">${p[1]}</div></div>
+        <span class="team">${away}</span>
+      </div>
+      ${ptsHtml}
+    </div>`;
+  }).join('');
+  const standHtml=`<div class="stand-row header-row">
+    <span></span><span></span>
+    <span class="num">J</span><span class="num">V</span><span class="num">E</span><span class="num">D</span><span class="num">Pts</span>
+  </div>`+st.map((t,i)=>`<div class="stand-row ${i<2?'classified':''}">
+    <span class="pos">${i+1}</span><span class="tname">${t.name}</span>
+    <span class="num">${t.j}</span><span class="num">${t.v}</span>
+    <span class="num">${t.e}</span><span class="num">${t.d}</span>
+    <span class="num">${t.pts}</span>
+  </div>`).join('');
+  return `<div class="group-card">
+    <div class="group-header"><span class="group-label" style="background:${data.color}">Grupo ${g}</span></div>
+    <div class="matches">${matchesHtml}</div>
+    <div class="standings"><div class="standings-title">Minha classificação</div>${standHtml}</div>
+  </div>`;
+}
+document.getElementById('groups-grid').innerHTML=Object.keys(GROUPS).map(g=>renderGroup(g)).join('');
+</script></body></html>
+"""
+    html = html.replace('__PALPITES__',  palpites_json)
+    html = html.replace('__RESULTADOS__', resultados_json)
+    st.components.v1.html(html, height=3400, scrolling=True)
+
 elif page == "🔐 Admin":
     st.markdown("# 🔐 Painel do Administrador")
     if not st.session_state.admin_logged:
