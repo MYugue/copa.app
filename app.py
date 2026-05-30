@@ -296,6 +296,26 @@ with st.sidebar:
     else:
         st.markdown(f'<div class="deadline-box">⏰ <b>Prazo:</b><br>{deadline_str()}</div>', unsafe_allow_html=True)
 
+    # Botão admin no final da sidebar
+    st.divider()
+    if not st.session_state.admin_logged:
+        if st.button("🔐 Admin", use_container_width=True):
+            st.session_state["show_admin_login"] = True
+        if st.session_state.get("show_admin_login"):
+            pwd = st.text_input("Senha", type="password", key="admin_pw_sidebar")
+            if st.button("Entrar", key="admin_enter_sidebar", use_container_width=True):
+                if pwd == ADMIN_PASSWORD:
+                    st.session_state.admin_logged = True
+                    st.session_state["show_admin_login"] = False
+                    st.rerun()
+                else:
+                    st.error("Senha incorreta!")
+    else:
+        st.success("✅ Admin logado")
+        if st.button("Sair do admin", use_container_width=True):
+            st.session_state.admin_logged = False
+            st.rerun()
+
 # ══════════════════════════════════════════════
 #  LOGIN / CADASTRO (página padrão)
 # ══════════════════════════════════════════════
