@@ -281,14 +281,14 @@ for k, v in [("user", None), ("admin_logged", False), ("auth_page", "login"), ("
 with st.sidebar:
     st.markdown("## ⚽ Bolão Copa 2026")
     if st.session_state.user:
-        st.success(f"👤 **{st.session_state.user['nickname']}**\n\n{st.session_state.user['name']}")
+        st.success(f"👤 **{st.session_state.user['nickname']}**")
         if st.button("🚪 Sair", use_container_width=True):
             st.session_state.user = None; st.rerun()
     st.divider()
-    if st.session_state.user or st.session_state.admin_logged:
-        page = st.radio("Navegação", ["🏠 Início","📝 Meus Palpites","🏆 Ranking","📊 Resultados","🔐 Admin"])
+    if st.session_state.user:
+        page = st.radio("Navegação", ["📝 Meus Palpites", "📊 Resultados"])
     else:
-        page = "🏠 Início"
+        page = "📝 Meus Palpites"
     st.divider()
     st.markdown("**Pontuação:**\n- ✅ Placar exato → **5 pts**\n- 🏆 Resultado certo → **3 pts**\n- ⚽ Gols de 1 time → **+1 pt**")
     if is_deadline_passed():
@@ -297,19 +297,11 @@ with st.sidebar:
         st.markdown(f'<div class="deadline-box">⏰ <b>Prazo:</b><br>{deadline_str()}</div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════
-#  INÍCIO
+#  LOGIN / CADASTRO (página padrão)
 # ══════════════════════════════════════════════
-if page == "🏠 Início":
+if not st.session_state.user and not st.session_state.admin_logged:
     st.markdown("# ⚽ Bolão Copa do Mundo 2026")
-    if st.session_state.user:
-        u = st.session_state.user
-        st.success(f"Bem-vindo de volta, **{u['name']}**! Use o menu lateral para fazer seus palpites.")
-        scores, _ = calc_ranking()
-        c1,c2,c3 = st.columns(3)
-        c1.metric("👥 Participantes", len(get_all_participants()))
-        c2.metric("⚽ Jogos com resultado", len(get_results()))
-        c3.metric("📊 Seus pontos", scores.get(u["nickname"], 0))
-    else:
+    if True:
         col1, col2 = st.columns(2, gap="large")
         with col1:
             st.markdown("### 🔑 Entrar")
@@ -461,7 +453,7 @@ elif page == "📝 Meus Palpites":
             st.success("✅ Último grupo!")
 
 # ══════════════════════════════════════════════
-#  RANKING
+#  RANKING (removido do menu - mantido só para admin)
 # ══════════════════════════════════════════════
 elif page == "🏆 Ranking":
     st.markdown("# 🏆 Ranking do Bolão")
@@ -711,6 +703,26 @@ document.getElementById('groups-grid').innerHTML=Object.keys(GROUPS).map(g=>rend
     html = html.replace('__PALPITES__',  palpites_json)
     html = html.replace('__RESULTADOS__', resultados_json)
     st.components.v1.html(html, height=3400, scrolling=True)
+
+# ── Botão admin no rodapé ──────────────────────
+st.divider()
+if not st.session_state.admin_logged:
+    col1, col2, col3 = st.columns([3, 1, 3])
+    with col2:
+        if st.button("🔐 Admin", use_container_width=True):
+            st.session_state["show_admin_login"] = True
+    if st.session_state.get("show_admin_login"):
+        pwd = st.text_input("Senha de administrador", type="password", key="admin_pw_footer")
+        if st.button("Entrar", key="admin_enter_footer"):
+            if pwd == ADMIN_PASSWORD:
+                st.session_state.admin_logged = True
+                st.session_state["show_admin_login"] = False
+                st.rerun()
+            else:
+                st.error("Senha incorreta!")
+
+if st.session_state.admin_logged:
+    pass
 
 elif page == "🔐 Admin":
     st.markdown("# 🔐 Painel do Administrador")
