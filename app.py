@@ -285,8 +285,12 @@ with st.sidebar:
         if st.button("🚪 Sair", use_container_width=True):
             st.session_state.user = None; st.rerun()
     st.divider()
-    if st.session_state.user:
+    if st.session_state.user and st.session_state.admin_logged:
+        page = st.radio("Navegação", ["📝 Meus Palpites", "📊 Resultados", "🔐 Admin"])
+    elif st.session_state.user:
         page = st.radio("Navegação", ["📝 Meus Palpites", "📊 Resultados"])
+    elif st.session_state.admin_logged:
+        page = st.radio("Navegação", ["🔐 Admin"])
     else:
         page = "📝 Meus Palpites"
     st.divider()
