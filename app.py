@@ -517,11 +517,9 @@ elif page == "🏆 Ranking":
 # ══════════════════════════════════════════════
 elif page == "📊 Resultados":
     st.markdown("# 📊 Resultados dos Jogos")
+    import json
 
     results = get_results()
-
-    # Monta dicionário de placares por grupo e times
-    # Formato: { "A": { "México_CoreiadoSul": (2,1), ... }, ... }
     placares = {}
     for mid, (rh, ra) in results.items():
         match = MATCH_BY_ID.get(mid)
@@ -532,186 +530,143 @@ elif page == "📊 Resultados":
             key = f"{match['home']}|{match['away']}"
             placares[g][key] = (rh, ra)
 
-    # Serializa para JSON e injeta no HTML
-    import json
-    placares_json = json.dumps(placares)
+    placares_json = json.dumps(placares, ensure_ascii=False)
 
-    html_tabela = f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
+    html = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
-* {{ box-sizing: border-box; margin: 0; padding: 0; }}
-body {{ font-family: Arial, sans-serif; background: #f5f5f5; padding: 12px; }}
-.groups-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }}
-.group-card {{ background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }}
-.group-header {{ padding: 8px 14px; display: flex; align-items: center; gap: 8px; }}
-.group-label {{ font-size: 13px; font-weight: 700; color: #fff; padding: 3px 12px; border-radius: 12px; }}
-.matches {{ padding: 0 10px 6px; }}
-.match-row {{ display: grid; grid-template-columns: 1fr 36px 12px 36px 1fr; align-items: center; gap: 4px; padding: 5px 0; border-bottom: 1px solid #f0f0f0; }}
-.match-row:last-child {{ border-bottom: none; }}
-.team {{ font-size: 12px; color: #222; font-weight: 500; }}
-.team.right {{ text-align: right; }}
-.score-box {{ display: flex; align-items: center; justify-content: center; }}
-.score-val {{ width: 32px; height: 28px; text-align: center; font-size: 14px; font-weight: 700; border: 1px solid #ddd; border-radius: 5px; background: #f8f8f8; color: #1a6b3a; display: flex; align-items: center; justify-content: center; }}
-.score-val.played {{ background: #e8f5e9; border-color: #1a6b3a; }}
-.vs {{ font-size: 10px; color: #bbb; text-align: center; }}
-.standings {{ padding: 4px 10px 10px; background: #fafafa; }}
-.standings-title {{ font-size: 10px; color: #999; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }}
-.stand-row {{ display: grid; grid-template-columns: 16px 1fr 22px 22px 22px 22px 22px; align-items: center; gap: 4px; font-size: 11px; padding: 2px 0; color: #666; }}
-.stand-row.header-row {{ font-size: 10px; color: #aaa; }}
-.stand-row .pos {{ font-weight: 700; color: #333; }}
-.stand-row .tname {{ color: #333; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-.classified {{ background: rgba(26,107,58,0.07); border-radius: 4px; }}
-.classified .pos {{ color: #1a6b3a; }}
-.num {{ text-align: center; }}
-.classified-section {{ margin-top: 16px; background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }}
-.classified-section h2 {{ font-size: 14px; font-weight: 700; color: #222; margin-bottom: 10px; }}
-.class-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }}
-.class-slot {{ background: #f5f5f5; border-radius: 6px; padding: 7px 10px; font-size: 12px; border: 1px solid #eee; }}
-.class-slot .slot-label {{ color: #999; font-size: 10px; margin-bottom: 2px; }}
-.class-slot .slot-team {{ color: #333; font-weight: 600; }}
-.class-slot.filled {{ background: rgba(26,107,58,0.07); border-color: rgba(26,107,58,0.3); }}
-.class-slot.filled .slot-team {{ color: #1a6b3a; }}
-.legend {{ font-size: 11px; color: #888; margin-bottom: 10px; }}
-</style>
-</head>
-<body>
-
-<p class="legend">🟢 Resultados já lançados aparecem em verde. ⬜ Jogos ainda sem resultado.</p>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#fff;padding:8px}
+.groups-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:900px){.groups-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:580px){.groups-grid{grid-template-columns:1fr}}
+.group-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden}
+.group-header{padding:6px 10px}
+.group-label{font-size:12px;font-weight:700;color:#fff;padding:2px 10px;border-radius:10px;display:inline-block}
+.matches{padding:2px 8px 4px}
+.match-row{display:grid;grid-template-columns:1fr 26px 10px 26px 1fr;align-items:center;gap:3px;padding:3px 0;border-bottom:1px solid #f5f5f5}
+.match-row:last-child{border-bottom:none}
+.team{font-size:11px;color:#222;font-weight:500}
+.team.right{text-align:right}
+.score-box{display:flex;align-items:center;justify-content:center}
+.score-val{width:24px;height:22px;text-align:center;font-size:12px;font-weight:700;border:1px solid #ddd;border-radius:4px;background:#f8f8f8;color:#888;display:flex;align-items:center;justify-content:center}
+.score-val.played{background:#e8f5e9;border-color:#1a6b3a;color:#1a6b3a}
+.vs{font-size:9px;color:#ccc;text-align:center}
+.standings{padding:3px 8px 8px;background:#fafafa;border-top:1px solid #f0f0f0}
+.standings-title{font-size:9px;color:#aaa;margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+.stand-row{display:grid;grid-template-columns:14px 1fr 20px 20px 20px 20px 20px;align-items:center;gap:2px;font-size:10px;padding:1px 0;color:#777}
+.stand-row.header-row{font-size:9px;color:#bbb}
+.stand-row .pos{font-weight:700;color:#333}
+.stand-row .tname{color:#333;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.classified{background:rgba(26,107,58,.08);border-radius:3px}
+.classified .pos{color:#1a6b3a}
+.num{text-align:center}
+.classified-section{margin-top:12px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px}
+.classified-section h2{font-size:13px;font-weight:700;color:#222;margin-bottom:8px}
+.class-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
+.class-slot{background:#f5f5f5;border-radius:5px;padding:5px 8px;font-size:11px;border:1px solid #eee}
+.class-slot .slot-label{color:#aaa;font-size:9px;margin-bottom:1px}
+.class-slot .slot-team{color:#333;font-weight:600}
+.class-slot.filled{background:rgba(26,107,58,.07);border-color:rgba(26,107,58,.3)}
+.class-slot.filled .slot-team{color:#1a6b3a}
+.legend{font-size:11px;color:#888;margin-bottom:8px}
+</style></head><body>
+<p class="legend">🟢 Verde = resultado lançado &nbsp;|&nbsp; ⬜ Cinza = aguardando</p>
 <div class="groups-grid" id="groups-grid"></div>
 <div class="classified-section">
   <h2>🏆 Classificados para as Oitavas</h2>
   <div class="class-grid" id="classified-grid"></div>
 </div>
-
 <script>
-const PLACARES = {placares_json};
-
-const GROUPS = {{
-  A: {{ color: '#1a6b3a', teams: ['México', 'Coreia do Sul', 'Rep. Tcheca', 'África do Sul'] }},
-  B: {{ color: '#1a5ca8', teams: ['Canadá', 'Catar', 'Suíça', 'Bósnia e Herz.'] }},
-  C: {{ color: '#c8a000', teams: ['Brasil', 'Marrocos', 'Escócia', 'Haiti'] }},
-  D: {{ color: '#7b3fa0', teams: ['EUA', 'Austrália', 'Turquia', 'Paraguai'] }},
-  E: {{ color: '#b33000', teams: ['Alemanha', 'Costa do Marfim', 'Equador', 'Curaçao'] }},
-  F: {{ color: '#0077a8', teams: ['Holanda', 'Suécia', 'Japão', 'Tunísia'] }},
-  G: {{ color: '#3a7a00', teams: ['Bélgica', 'Irã', 'Nova Zelândia', 'Egito'] }},
-  H: {{ color: '#a04000', teams: ['Espanha', 'Arábia Saudita', 'Uruguai', 'Cabo Verde'] }},
-  I: {{ color: '#1a5ca8', teams: ['França', 'Iraque', 'Noruega', 'Senegal'] }},
-  J: {{ color: '#7b3fa0', teams: ['Argentina', 'Áustria', 'Jordânia', 'Argélia'] }},
-  K: {{ color: '#1a6b3a', teams: ['Portugal', 'Colômbia', 'Uzbequistão', 'R.D. Congo'] }},
-  L: {{ color: '#a04000', teams: ['Inglaterra', 'Gana', 'Panamá', 'Croácia'] }}
-}};
-
-function getMatches(teams) {{
-  const m = [];
-  for (let i = 0; i < teams.length; i++)
-    for (let j = i+1; j < teams.length; j++)
-      m.push([i, j]);
+const PLACARES = __PLACARES__;
+const GROUPS = {
+  A:{color:'#1a6b3a',teams:['México','Coreia do Sul','Rep. Tcheca','África do Sul']},
+  B:{color:'#1a5ca8',teams:['Canadá','Catar','Suíça','Bósnia e Herz.']},
+  C:{color:'#c8a000',teams:['Brasil','Marrocos','Escócia','Haiti']},
+  D:{color:'#7b3fa0',teams:['EUA','Austrália','Turquia','Paraguai']},
+  E:{color:'#b33000',teams:['Alemanha','Costa do Marfim','Equador','Curaçao']},
+  F:{color:'#0077a8',teams:['Holanda','Suécia','Japão','Tunísia']},
+  G:{color:'#3a7a00',teams:['Bélgica','Irã','Nova Zelândia','Egito']},
+  H:{color:'#a04000',teams:['Espanha','Arábia Saudita','Uruguai','Cabo Verde']},
+  I:{color:'#1a5ca8',teams:['França','Iraque','Noruega','Senegal']},
+  J:{color:'#7b3fa0',teams:['Argentina','Áustria','Jordânia','Argélia']},
+  K:{color:'#1a6b3a',teams:['Portugal','Colômbia','Uzbequistão','R.D. Congo']},
+  L:{color:'#a04000',teams:['Inglaterra','Gana','Panamá','Croácia']}
+};
+function getMatches(teams){
+  const m=[];
+  for(let i=0;i<teams.length;i++)
+    for(let j=i+1;j<teams.length;j++) m.push([i,j]);
   return m;
-}}
-
-function getPlacar(g, home, away) {{
-  if (!PLACARES[g]) return null;
-  const key = home + '|' + away;
-  return PLACARES[g][key] || null;
-}}
-
-function calcStandings(g) {{
-  const teams = GROUPS[g].teams;
-  const st = teams.map(t => ({{ name: t, pts: 0, gf: 0, ga: 0, j: 0, v: 0, e: 0, d: 0 }}));
-  const ms = getMatches(teams);
-  ms.forEach((m) => {{
-    const placar = getPlacar(g, teams[m[0]], teams[m[1]]);
-    if (!placar) return;
-    const hv = placar[0], av = placar[1];
-    st[m[0]].j++; st[m[1]].j++;
-    st[m[0]].gf += hv; st[m[0]].ga += av;
-    st[m[1]].gf += av; st[m[1]].ga += hv;
-    if (hv > av) {{ st[m[0]].pts += 3; st[m[0]].v++; st[m[1]].d++; }}
-    else if (hv < av) {{ st[m[1]].pts += 3; st[m[1]].v++; st[m[0]].d++; }}
-    else {{ st[m[0]].pts++; st[m[1]].pts++; st[m[0]].e++; st[m[1]].e++; }}
-  }});
-  st.forEach(t => t.gd = t.gf - t.ga);
-  st.sort((a, b) => b.pts - a.pts || (b.gd - a.gd) || b.gf - a.gf || a.name.localeCompare(b.name));
+}
+function getPlacar(g,home,away){
+  if(!PLACARES[g]) return null;
+  return PLACARES[g][home+'|'+away]||null;
+}
+function calcStandings(g){
+  const teams=GROUPS[g].teams;
+  const st=teams.map(t=>({name:t,pts:0,gf:0,ga:0,j:0,v:0,e:0,d:0}));
+  getMatches(teams).forEach(m=>{
+    const p=getPlacar(g,teams[m[0]],teams[m[1]]);
+    if(!p) return;
+    const hv=p[0],av=p[1];
+    st[m[0]].j++;st[m[1]].j++;
+    st[m[0]].gf+=hv;st[m[0]].ga+=av;
+    st[m[1]].gf+=av;st[m[1]].ga+=hv;
+    if(hv>av){st[m[0]].pts+=3;st[m[0]].v++;st[m[1]].d++;}
+    else if(hv<av){st[m[1]].pts+=3;st[m[1]].v++;st[m[0]].d++;}
+    else{st[m[0]].pts++;st[m[1]].pts++;st[m[0]].e++;st[m[1]].e++;}
+  });
+  st.forEach(t=>t.gd=t.gf-t.ga);
+  st.sort((a,b)=>b.pts-a.pts||(b.gd-a.gd)||b.gf-a.gf||a.name.localeCompare(b.name));
   return st;
-}}
-
-function renderGroup(g) {{
-  const data = GROUPS[g];
-  const ms = getMatches(data.teams);
-  const st = calcStandings(g);
-
-  let matchesHtml = ms.map((m) => {{
-    const home = data.teams[m[0]], away = data.teams[m[1]];
-    const placar = getPlacar(g, home, away);
-    const hVal = placar ? placar[0] : '—';
-    const aVal = placar ? placar[1] : '—';
-    const cls  = placar ? 'played' : '';
+}
+function renderGroup(g){
+  const data=GROUPS[g];
+  const st=calcStandings(g);
+  const matchesHtml=getMatches(data.teams).map(m=>{
+    const home=data.teams[m[0]],away=data.teams[m[1]];
+    const p=getPlacar(g,home,away);
+    const hv=p!=null?p[0]:'—',av=p!=null?p[1]:'—',cls=p!=null?'played':'';
     return `<div class="match-row">
-      <span class="team right">${{home}}</span>
-      <div class="score-box"><div class="score-val ${{cls}}">${{hVal}}</div></div>
+      <span class="team right">${home}</span>
+      <div class="score-box"><div class="score-val ${cls}">${hv}</div></div>
       <span class="vs">×</span>
-      <div class="score-box"><div class="score-val ${{cls}}">${{aVal}}</div></div>
-      <span class="team">${{away}}</span>
+      <div class="score-box"><div class="score-val ${cls}">${av}</div></div>
+      <span class="team">${away}</span>
     </div>`;
-  }}).join('');
-
-  let standHtml = `<div class="stand-row header-row">
+  }).join('');
+  const standHtml=`<div class="stand-row header-row">
     <span></span><span></span>
     <span class="num">J</span><span class="num">V</span><span class="num">E</span><span class="num">D</span><span class="num">Pts</span>
-  </div>` + st.map((t, idx) => `<div class="stand-row ${{idx < 2 ? 'classified' : ''}}">
-    <span class="pos">${{idx+1}}</span>
-    <span class="tname">${{t.name}}</span>
-    <span class="num">${{t.j}}</span>
-    <span class="num">${{t.v}}</span>
-    <span class="num">${{t.e}}</span>
-    <span class="num">${{t.d}}</span>
-    <span class="num">${{t.pts}}</span>
+  </div>`+st.map((t,i)=>`<div class="stand-row ${i<2?'classified':''}">
+    <span class="pos">${i+1}</span><span class="tname">${t.name}</span>
+    <span class="num">${t.j}</span><span class="num">${t.v}</span>
+    <span class="num">${t.e}</span><span class="num">${t.d}</span>
+    <span class="num">${t.pts}</span>
   </div>`).join('');
-
   return `<div class="group-card">
-    <div class="group-header">
-      <span class="group-label" style="background:${{data.color}}">Grupo ${{g}}</span>
-    </div>
-    <div class="matches">${{matchesHtml}}</div>
-    <div class="standings">
-      <div class="standings-title">Classificação</div>
-      ${{standHtml}}
-    </div>
+    <div class="group-header"><span class="group-label" style="background:${data.color}">Grupo ${g}</span></div>
+    <div class="matches">${matchesHtml}</div>
+    <div class="standings"><div class="standings-title">Classificação</div>${standHtml}</div>
   </div>`;
-}}
-
-function renderClassified() {{
-  const groups = Object.keys(GROUPS);
-  const grid = document.getElementById('classified-grid');
-  grid.innerHTML = groups.map(g => {{
-    const st = calcStandings(g);
-    return [0,1].map(pos => `
-      <div class="class-slot ${{st[pos].j > 0 ? 'filled' : ''}}">
-        <div class="slot-label">Grupo ${{g}} — ${{pos === 0 ? '1º' : '2º'}}</div>
-        <div class="slot-team">${{st[pos].j > 0 ? st[pos].name : '—'}}</div>
+}
+function renderClassified(){
+  document.getElementById('classified-grid').innerHTML=
+    Object.keys(GROUPS).map(g=>{
+      const st=calcStandings(g);
+      return [0,1].map(pos=>`<div class="class-slot ${st[pos].j>0?'filled':''}">
+        <div class="slot-label">Grupo ${g} — ${pos===0?'1º':'2º'}</div>
+        <div class="slot-team">${st[pos].j>0?st[pos].name:'—'}</div>
       </div>`).join('');
-  }}).join('');
-}}
-
-function renderAll() {{
-  document.getElementById('groups-grid').innerHTML =
-    Object.keys(GROUPS).map(g => renderGroup(g)).join('');
-  renderClassified();
-}}
-
-renderAll();
-</script>
-</body>
-</html>
+    }).join('');
+}
+document.getElementById('groups-grid').innerHTML=Object.keys(GROUPS).map(g=>renderGroup(g)).join('');
+renderClassified();
+</script></body></html>
 """
-
-    # Substitui o placeholder do JSON
-    html_tabela = html_tabela.replace("{placares_json}", placares_json)
-
-    st.components.v1.html(html_tabela, height=3200, scrolling=True)
+    html = html.replace('__PLACARES__', placares_json)
+    st.components.v1.html(html, height=3400, scrolling=True)
 
 # ══════════════════════════════════════════════
 #  ADMIN
