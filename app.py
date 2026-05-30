@@ -745,16 +745,10 @@ if not st.session_state.admin_logged:
             else:
                 st.error("Senha incorreta!")
 
-if st.session_state.admin_logged:
-    pass
-
-elif page == "🔐 Admin":
+if page == "🔐 Admin":
     st.markdown("# 🔐 Painel do Administrador")
     if not st.session_state.admin_logged:
-        pwd = st.text_input("Senha", type="password")
-        if st.button("Entrar como admin"):
-            if pwd == ADMIN_PASSWORD: st.session_state.admin_logged = True; st.rerun()
-            else: st.error("Senha incorreta!")
+        st.warning("Faça login como admin pela barra lateral.")
         st.stop()
 
     st.success("✅ Logado como administrador")
