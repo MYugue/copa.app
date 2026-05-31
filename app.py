@@ -817,6 +817,63 @@ if page == "🔐 Admin":
         else:
             st.info("Nenhum participante cadastrado ainda.")
 
+
+    st.divider()
+    st.markdown("### 📥 Exportar dados")
+    if st.button("📥 Gerar CSV completo", use_container_width=True):
+        import io
+        participants = get_all_participants()
+        results      = get_results()
+
+        # Cabeçalho: Apelido, Nome, + um coluna por jogo, + Total de pontos
+        header = ["Apelido", "Nome"]
+        for match in ALL_MATCHES:
+            header.append(f"G{match['group']}: {match['home']} x {match['away']}")
+        header.append("Total Pontos")
+
+        rows = []
+        for p in participants:
+            nick       = p["nickname"]
+            guesses    = get_guesses(nick)
+            row        = [nick, p["name"]]
+            total_pts  = 0
+            for match in ALL_MATCHES:
+                mid   = match["id"]
+                guess = guesses.get(mid)
+                real  = results.get(mid)
+                if guess:
+                    gh, ga = guess
+                    if real:
+                        pts, _ = calc_points(gh, ga, real[0], real[1])
+                        total_pts += pts
+                        row.append(f"{gh}x{ga} ({pts}pts) | Real:{real[0]}x{real[1]}")
+                    else:
+                        row.append(f"{gh}x{ga}")
+                else:
+                    row.append("—")
+            row.append(total_pts)
+            rows.append(row)
+
+        # Linha de resultados reais
+        real_row = ["RESULTADO REAL", ""]
+        for match in ALL_MATCHES:
+            real = results.get(match["id"])
+            real_row.append(f"{real[0]}x{real[1]}" if real else "—")
+        real_row.append("")
+        rows.insert(0, real_row)
+
+        df_export = pd.DataFrame(rows, columns=header)
+        csv_buffer = io.StringIO()
+        df_export.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
+        st.download_button(
+            label="⬇️ Baixar CSV",
+            data=csv_buffer.getvalue(),
+            file_name="bolao_copa_2026.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+        st.dataframe(df_export, hide_index=True, use_container_width=True)
+
     st.divider()
     with st.expander("🗑️ Remover participante"):
         if participants:
