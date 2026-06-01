@@ -265,11 +265,11 @@ st.markdown("""
 # Logo no topo da sidebar
 with st.sidebar:
     st.markdown(
-        f"<div style='text-align:center; padding: 8px 0 4px;'>"
-        f"<img src='{LOGO_URL}' style='width:90px; border-radius:8px;'>"
-        f"<div style='font-size:22px; font-weight:900; color:#FFD700;"
-        f"letter-spacing:2px; margin-top:6px;'>PANGARÉ</div>"
-        f"</div>",
+        "<div style='text-align:center; padding: 8px 0 4px;'>"
+        "<img src='https://raw.githubusercontent.com/MYugue/copa.app/main/Logo_copa_2026.png' style='width:90px; border-radius:8px;'>"
+        "<div style='font-size:22px; font-weight:900; color:#FFD700;"
+        "letter-spacing:2px; margin-top:6px;'>PANGARÉ</div>"
+        "</div>",
         unsafe_allow_html=True
     )
 
