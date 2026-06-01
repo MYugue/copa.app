@@ -242,10 +242,7 @@ st.set_page_config(page_title="Bolão Copa 2026", page_icon="⚽", layout="wide"
 st.markdown("""
 <style>
 .stApp {
-    background-image: url("https://raw.githubusercontent.com/MYugue/copa.app/main/FIFA_Series_2026.jpg");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
+    background: #f5f5f5;
 }
 [data-testid="stSidebar"] {
     background: rgba(10, 10, 40, 0.88) !important;
@@ -315,11 +312,21 @@ for k, v in [("user", None), ("admin_logged", False), ("auth_page", "login"), ("
 #  SIDEBAR
 # ══════════════════════════════════════════════
 with st.sidebar:
+    LOGO_URL = "https://raw.githubusercontent.com/MYugue/copa.app/main/Logo_copa_2026.png"
+    st.markdown(
+        f"<div style='text-align:center; padding: 8px 0 4px;'>"
+        f"<img src='{LOGO_URL}' style='width:90px; border-radius:8px;'>"
+        f"<div style='font-size:22px; font-weight:900; color:#FFD700;"
+        f"letter-spacing:2px; margin-top:6px;'>PANGARÉ</div>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+    st.divider()
     if st.session_state.user:
         st.success(f"👤 **{st.session_state.user['nickname']}**")
         if st.button("🚪 Sair", use_container_width=True):
             st.session_state.user = None; st.rerun()
-    st.divider()
+        st.divider()
     if st.session_state.user and st.session_state.admin_logged:
         page = st.radio("Navegação", ["📝 Meus Palpites", "📊 Resultados", "🔐 Admin"])
     elif st.session_state.user:
@@ -334,6 +341,27 @@ with st.sidebar:
         st.markdown(f'<div class="locked-box">🔒 <b>Encerrado</b><br>{deadline_str()}</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="deadline-box">⏰ <b>Prazo:</b><br>{deadline_str()}</div>', unsafe_allow_html=True)
+    # Botão Admin fixo no rodapé da sidebar
+    st.markdown("<div style='position:fixed;bottom:16px;left:8px;width:200px;'>", unsafe_allow_html=True)
+    if not st.session_state.admin_logged:
+        if st.button("🔐 Admin", key="admin_btn_fixed", use_container_width=True):
+            st.session_state["show_admin_login"] = not st.session_state.get("show_admin_login", False)
+            st.rerun()
+        if st.session_state.get("show_admin_login"):
+            pwd = st.text_input("Senha", type="password", key="admin_pw_fixed")
+            if st.button("Entrar", key="admin_enter_fixed", use_container_width=True):
+                if pwd == ADMIN_PASSWORD:
+                    st.session_state.admin_logged = True
+                    st.session_state["show_admin_login"] = False
+                    st.rerun()
+                else:
+                    st.error("Senha incorreta!")
+    else:
+        st.success("✅ Admin")
+        if st.button("Sair admin", use_container_width=True):
+            st.session_state.admin_logged = False
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 
@@ -342,7 +370,6 @@ with st.sidebar:
 # ══════════════════════════════════════════════
 if not st.session_state.user and not st.session_state.admin_logged:
     st.markdown("---")
-
     col_rank, col_login = st.columns([1.3, 1], gap="large")
 
     # ── RANKING À ESQUERDA ──────────────────────
@@ -353,24 +380,20 @@ if not st.session_state.user and not st.session_state.admin_logged:
         if not participants:
             st.info("Nenhum participante ainda.")
         else:
-            nick_to_name  = {p["nickname"]: p["name"] for p in participants}
             all_scores    = {p["nickname"]: scores.get(p["nickname"], 0) for p in participants}
             sorted_scores = sorted(all_scores.items(), key=lambda x: -x[1])
             medals = ["🥇","🥈","🥉"]
-            rows = []
-            for i, (nick, pts) in enumerate(sorted_scores):
-                medal = medals[i] if i < 3 else f"{i+1}º"
-                rows.append({"": medal, "Apelido": nick, "Pontos": pts})
-            df_rank = pd.DataFrame(rows)
-            st.dataframe(df_rank, hide_index=True, use_container_width=True,
+            rows = [{"": medals[i] if i < 3 else f"{i+1}º", "Apelido": nick, "Pontos": pts}
+                    for i,(nick,pts) in enumerate(sorted_scores)]
+            st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True,
                 column_config={
                     "": st.column_config.TextColumn(width="small"),
                     "Pontos": st.column_config.NumberColumn(format="%d pts"),
                 })
             results = get_results()
-            st.caption(f"⚽ {len(results)} jogos com resultado lançado | 👥 {len(participants)} participantes")
+            st.caption(f"⚽ {len(results)} jogos com resultado | 👥 {len(participants)} participantes")
 
-    # ── LOGIN / CADASTRO À DIREITA ──────────────
+    # ── LOGIN À DIREITA ──────────────────────────
     with col_login:
         st.markdown("### 🔑 Entrar")
         nick_l = st.text_input("Apelido", key="ln", placeholder="seu apelido")
@@ -382,9 +405,14 @@ if not st.session_state.user and not st.session_state.admin_logged:
                 else: st.error("Apelido ou senha incorretos.")
             else: st.warning("Preencha todos os campos.")
 
-        st.markdown("---")
-        st.markdown("### 📋 Criar conta")
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("📋 Criar conta", use_container_width=True):
+            st.session_state.auth_page = "register"
+            st.rerun()
+
         if st.session_state.auth_page == "register":
+            st.markdown("---")
+            st.markdown("### 📋 Criar conta")
             inv  = st.text_input("Código de convite", key="ri", placeholder="enviado pelo organizador")
             nm   = st.text_input("Nome completo",     key="rn")
             nk   = st.text_input("Apelido",           key="rk", placeholder="aparece no ranking")
@@ -401,12 +429,8 @@ if not st.session_state.user and not st.session_state.admin_logged:
                         st.session_state.user = login_user(nk, pw)
                         st.session_state.auth_page = "login"; st.rerun()
                     else: st.error(msg)
-            if st.button("Já tenho conta", use_container_width=True):
+            if st.button("← Voltar ao login", use_container_width=True):
                 st.session_state.auth_page = "login"; st.rerun()
-        else:
-            st.info("Não tem conta ainda?")
-            if st.button("Criar conta", use_container_width=True):
-                st.session_state.auth_page = "register"; st.rerun()
 
 # ══════════════════════════════════════════════
 #  MEUS PALPITES — grupo a grupo com bandeiras
