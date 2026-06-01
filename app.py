@@ -237,6 +237,49 @@ def calc_ranking():
 #  CONFIG PÁGINA
 # ══════════════════════════════════════════════
 st.set_page_config(page_title="Bolão Copa 2026", page_icon="⚽", layout="wide")
+
+# Imagem de fundo + logo personalizado
+st.markdown(f"""
+<style>
+.stApp {
+    background-image: url("https://raw.githubusercontent.com/MYugue/copa.app/main/FIFA_Series_2026.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 20, 0.55);
+    z-index: 0;
+    pointer-events: none;
+}
+[data-testid="stSidebar"] {
+    background: rgba(10, 10, 40, 0.85) !important;
+}
+[data-testid="stSidebar"] * {
+    color: #fff !important;
+}
+.main .block-container {
+    background: rgba(255,255,255,0.92);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-top: 1rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Logo no topo da sidebar
+with st.sidebar:
+    st.markdown(f"""
+    <div style='text-align:center; padding: 8px 0 4px;'>
+        <img src="https://raw.githubusercontent.com/MYugue/copa.app/main/Logo_copa_2026.png" style='width:90px; border-radius:8px;'>
+        <div style='font-size:22px; font-weight:900; color:#FFD700;
+                    letter-spacing:2px; margin-top:6px;'>PANGARÉ</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 st.markdown("""
 <style>
 .match-row {
@@ -279,7 +322,6 @@ for k, v in [("user", None), ("admin_logged", False), ("auth_page", "login"), ("
 #  SIDEBAR
 # ══════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## ⚽ Bolão Copa 2026")
     if st.session_state.user:
         st.success(f"👤 **{st.session_state.user['nickname']}**")
         if st.button("🚪 Sair", use_container_width=True):
