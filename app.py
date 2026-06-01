@@ -259,17 +259,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Logo no topo da sidebar
-with st.sidebar:
-    st.markdown(
-        "<div style='text-align:center; padding: 8px 0 4px;'>"
-        "<img src='https://raw.githubusercontent.com/MYugue/copa.app/main/Logo_copa_2026.png' style='width:90px; border-radius:8px;'>"
-        "<div style='font-size:22px; font-weight:900; color:#FFD700;"
-        "letter-spacing:2px; margin-top:6px;'>PANGARÉ</div>"
-        "</div>",
-        unsafe_allow_html=True
-    )
-
 st.markdown("""
 <style>
 .match-row {
@@ -293,8 +282,8 @@ st.markdown("""
 .pts-ok  { background:#1a6b3a; color:#fff; padding:2px 8px; border-radius:8px; font-size:11px; }
 .pts-no  { background:#ddd;    color:#777; padding:2px 8px; border-radius:8px; font-size:11px; }
 .real-info { text-align:center; font-size:12px; color:#777; margin-bottom:6px; }
-.deadline-box { background:#fff3cd; border-left:4px solid #ffc107; padding:10px 14px; border-radius:4px; font-size:14px; margin-bottom:12px; }
-.locked-box   { background:#f8d7da; border-left:4px solid #dc3545; padding:10px 14px; border-radius:4px; font-size:14px; margin-bottom:12px; }
+.deadline-box { background:#fff3cd; border-left:4px solid #ffc107; padding:10px 14px; border-radius:4px; font-size:14px; margin-bottom:12px; color:#333 !important; }
+.locked-box   { background:#f8d7da; border-left:4px solid #dc3545; padding:10px 14px; border-radius:4px; font-size:14px; margin-bottom:12px; color:#333 !important; }
 div[data-testid="stNumberInput"] input {
     font-size:20px !important; font-weight:700 !important;
     text-align:center !important; color:#1a6b3a !important;
