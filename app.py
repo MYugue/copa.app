@@ -325,43 +325,72 @@ with st.sidebar:
 # ══════════════════════════════════════════════
 if not st.session_state.user and not st.session_state.admin_logged:
     st.markdown("# ⚽ Bolão Copa do Mundo 2026")
-    if True:
-        col1, col2 = st.columns(2, gap="large")
-        with col1:
-            st.markdown("### 🔑 Entrar")
-            nick_l = st.text_input("Apelido", key="ln", placeholder="seu apelido")
-            pw_l   = st.text_input("Senha",   key="lp", type="password")
-            if st.button("Entrar", use_container_width=True, type="primary"):
-                if nick_l and pw_l:
-                    u = login_user(nick_l, pw_l)
-                    if u: st.session_state.user = u; st.rerun()
-                    else: st.error("Apelido ou senha incorretos.")
-                else: st.warning("Preencha todos os campos.")
+    st.markdown("---")
+
+    col_rank, col_login = st.columns([1.3, 1], gap="large")
+
+    # ── RANKING À ESQUERDA ──────────────────────
+    with col_rank:
+        st.markdown("### 🏆 Ranking")
+        scores, _    = calc_ranking()
+        participants = get_all_participants()
+        if not participants:
+            st.info("Nenhum participante ainda.")
+        else:
+            nick_to_name  = {p["nickname"]: p["name"] for p in participants}
+            all_scores    = {p["nickname"]: scores.get(p["nickname"], 0) for p in participants}
+            sorted_scores = sorted(all_scores.items(), key=lambda x: -x[1])
+            medals = ["🥇","🥈","🥉"]
+            rows = []
+            for i, (nick, pts) in enumerate(sorted_scores):
+                medal = medals[i] if i < 3 else f"{i+1}º"
+                rows.append({"": medal, "Apelido": nick, "Pontos": pts})
+            df_rank = pd.DataFrame(rows)
+            st.dataframe(df_rank, hide_index=True, use_container_width=True,
+                column_config={
+                    "": st.column_config.TextColumn(width="small"),
+                    "Pontos": st.column_config.NumberColumn(format="%d pts"),
+                })
+            results = get_results()
+            st.caption(f"⚽ {len(results)} jogos com resultado lançado | 👥 {len(participants)} participantes")
+
+    # ── LOGIN / CADASTRO À DIREITA ──────────────
+    with col_login:
+        st.markdown("### 🔑 Entrar")
+        nick_l = st.text_input("Apelido", key="ln", placeholder="seu apelido")
+        pw_l   = st.text_input("Senha",   key="lp", type="password")
+        if st.button("Entrar", use_container_width=True, type="primary"):
+            if nick_l and pw_l:
+                u = login_user(nick_l, pw_l)
+                if u: st.session_state.user = u; st.rerun()
+                else: st.error("Apelido ou senha incorretos.")
+            else: st.warning("Preencha todos os campos.")
+
+        st.markdown("---")
+        st.markdown("### 📋 Criar conta")
+        if st.session_state.auth_page == "register":
+            inv  = st.text_input("Código de convite", key="ri", placeholder="enviado pelo organizador")
+            nm   = st.text_input("Nome completo",     key="rn")
+            nk   = st.text_input("Apelido",           key="rk", placeholder="aparece no ranking")
+            pw   = st.text_input("Senha",             key="rp", type="password")
+            pw2  = st.text_input("Confirmar senha",   key="rp2", type="password")
+            if st.button("Cadastrar", use_container_width=True, type="primary"):
+                if not all([inv,nm,nk,pw,pw2]): st.error("Preencha todos os campos.")
+                elif inv.strip().lower() != INVITE_CODE.lower(): st.error("Código de convite inválido.")
+                elif pw != pw2: st.error("As senhas não coincidem.")
+                elif len(pw) < 4: st.error("Senha deve ter ao menos 4 caracteres.")
+                else:
+                    ok, msg = register_user(nm, nk, pw)
+                    if ok:
+                        st.session_state.user = login_user(nk, pw)
+                        st.session_state.auth_page = "login"; st.rerun()
+                    else: st.error(msg)
+            if st.button("Já tenho conta", use_container_width=True):
+                st.session_state.auth_page = "login"; st.rerun()
+        else:
+            st.info("Não tem conta ainda?")
             if st.button("Criar conta", use_container_width=True):
                 st.session_state.auth_page = "register"; st.rerun()
-        with col2:
-            st.markdown("### 📋 Criar conta")
-            if st.session_state.auth_page == "register":
-                inv  = st.text_input("Código de convite", key="ri", placeholder="enviado pelo organizador")
-                nm   = st.text_input("Nome completo",     key="rn")
-                nk   = st.text_input("Apelido",           key="rk", placeholder="aparece no ranking")
-                pw   = st.text_input("Senha",             key="rp", type="password")
-                pw2  = st.text_input("Confirmar senha",   key="rp2", type="password")
-                if st.button("Cadastrar", use_container_width=True, type="primary"):
-                    if not all([inv,nm,nk,pw,pw2]): st.error("Preencha todos os campos.")
-                    elif inv.strip().lower() != INVITE_CODE.lower(): st.error("Código de convite inválido.")
-                    elif pw != pw2: st.error("As senhas não coincidem.")
-                    elif len(pw) < 4: st.error("Senha deve ter ao menos 4 caracteres.")
-                    else:
-                        ok, msg = register_user(nm, nk, pw)
-                        if ok:
-                            st.session_state.user = login_user(nk, pw)
-                            st.session_state.auth_page = "login"; st.rerun()
-                        else: st.error(msg)
-                if st.button("Já tenho conta", use_container_width=True):
-                    st.session_state.auth_page = "login"; st.rerun()
-            else:
-                st.info("Clique em **Criar conta** ao lado para se cadastrar.")
 
 # ══════════════════════════════════════════════
 #  MEUS PALPITES — grupo a grupo com bandeiras
