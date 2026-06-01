@@ -797,23 +797,6 @@ document.getElementById('groups-grid').innerHTML=Object.keys(GROUPS).map(g=>rend
     html = html.replace('__RESULTADOS__', resultados_json)
     st.components.v1.html(html, height=3400, scrolling=True)
 
-# ── Botão admin no rodapé ──────────────────────
-st.divider()
-if not st.session_state.admin_logged:
-    col1, col2, col3 = st.columns([3, 1, 3])
-    with col2:
-        if st.button("🔐 Admin", use_container_width=True):
-            st.session_state["show_admin_login"] = True
-    if st.session_state.get("show_admin_login"):
-        pwd = st.text_input("Senha de administrador", type="password", key="admin_pw_footer")
-        if st.button("Entrar", key="admin_enter_footer"):
-            if pwd == ADMIN_PASSWORD:
-                st.session_state.admin_logged = True
-                st.session_state["show_admin_login"] = False
-                st.rerun()
-            else:
-                st.error("Senha incorreta!")
-
 if page == "🔐 Admin":
     st.markdown("# 🔐 Painel do Administrador")
     if not st.session_state.admin_logged:
