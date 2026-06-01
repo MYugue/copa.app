@@ -239,13 +239,10 @@ def calc_ranking():
 st.set_page_config(page_title="Bolão Copa 2026", page_icon="⚽", layout="wide")
 
 # Imagem de fundo + logo personalizado
-BG_URL   = "https://raw.githubusercontent.com/MYugue/copa.app/main/FIFA_Series_2026.jpg"
-LOGO_URL = "https://raw.githubusercontent.com/MYugue/copa.app/main/Logo_copa_2026.png"
-
 st.markdown("""
 <style>
 .stApp {
-    background-image: url("""" + BG_URL + """");
+    background-image: url("https://raw.githubusercontent.com/MYugue/copa.app/main/FIFA_Series_2026.jpg");
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -338,31 +335,12 @@ with st.sidebar:
     else:
         st.markdown(f'<div class="deadline-box">⏰ <b>Prazo:</b><br>{deadline_str()}</div>', unsafe_allow_html=True)
 
-    # Botão admin no final da sidebar
-    st.divider()
-    if not st.session_state.admin_logged:
-        if st.button("🔐 Admin", use_container_width=True):
-            st.session_state["show_admin_login"] = True
-        if st.session_state.get("show_admin_login"):
-            pwd = st.text_input("Senha", type="password", key="admin_pw_sidebar")
-            if st.button("Entrar", key="admin_enter_sidebar", use_container_width=True):
-                if pwd == ADMIN_PASSWORD:
-                    st.session_state.admin_logged = True
-                    st.session_state["show_admin_login"] = False
-                    st.rerun()
-                else:
-                    st.error("Senha incorreta!")
-    else:
-        st.success("✅ Admin logado")
-        if st.button("Sair do admin", use_container_width=True):
-            st.session_state.admin_logged = False
-            st.rerun()
+
 
 # ══════════════════════════════════════════════
 #  LOGIN / CADASTRO (página padrão)
 # ══════════════════════════════════════════════
 if not st.session_state.user and not st.session_state.admin_logged:
-    st.markdown("# ⚽ Bolão Copa do Mundo 2026")
     st.markdown("---")
 
     col_rank, col_login = st.columns([1.3, 1], gap="large")
