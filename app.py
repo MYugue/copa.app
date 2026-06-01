@@ -250,6 +250,17 @@ st.markdown("""
 [data-testid="stSidebar"] * {
     color: #fff !important;
 }
+[data-testid="stSidebar"] .deadline-box,
+[data-testid="stSidebar"] .deadline-box * {
+    color: #333 !important;
+}
+[data-testid="stSidebar"] .locked-box,
+[data-testid="stSidebar"] .locked-box * {
+    color: #333 !important;
+}
+[data-testid="stSidebar"] button[kind="secondary"] p {
+    color: #333 !important;
+}
 .main .block-container {
     background: rgba(255,255,255,0.93);
     border-radius: 12px;
@@ -927,3 +938,4 @@ if page == "🔐 Admin":
                 conn.execute("DELETE FROM participants WHERE nickname=?", (nick,))
                 conn.commit(); conn.close()
                 st.success(f"'{nick}' removido!"); st.rerun()
+                
