@@ -9,7 +9,7 @@ import pytz
 #  CONFIGURAÇÕES
 # ══════════════════════════════════════════════
 ADMIN_PASSWORD = "copa2026admin"
-INVITE_CODE    = "copa2026"
+INVITE_CODE    = "PANGARE2026"
 DB_PATH        = "bolao.db"
 DEADLINE       = datetime(2026, 6, 10, 23, 59, 0)
 TZ_BR          = pytz.timezone("America/Sao_Paulo")
