@@ -9,7 +9,7 @@ import pytz
 #  CONFIGURAÇÕES
 # ══════════════════════════════════════════════
 ADMIN_PASSWORD = "copa2026admin"
-INVITE_CODE    = "PANGARE2026"
+INVITE_CODE    = "copa2026"
 DB_PATH        = "bolao.db"
 DEADLINE       = datetime(2026, 6, 10, 23, 59, 0)
 TZ_BR          = pytz.timezone("America/Sao_Paulo")
@@ -927,6 +927,18 @@ if page == "🔐 Admin":
         st.dataframe(df_export, hide_index=True, use_container_width=True)
 
     st.divider()
+    st.divider()
+    with st.expander("🗑️ Limpar todos os resultados"):
+        st.warning("Isso apaga TODOS os placares lançados. Os palpites dos participantes são mantidos.")
+        if st.button("🗑️ Confirmar e limpar resultados", type="primary"):
+            conn = get_conn()
+            conn.execute("DELETE FROM results")
+            conn.commit()
+            conn.close()
+            st.success("✅ Todos os resultados foram apagados!")
+            st.rerun()
+
+    st.divider()
     with st.expander("🗑️ Remover participante"):
         if participants:
             opt = [f"{p['nickname']} — {p['name']}" for p in participants]
@@ -938,4 +950,3 @@ if page == "🔐 Admin":
                 conn.execute("DELETE FROM participants WHERE nickname=?", (nick,))
                 conn.commit(); conn.close()
                 st.success(f"'{nick}' removido!"); st.rerun()
-                
