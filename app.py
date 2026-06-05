@@ -1,18 +1,21 @@
 import streamlit as st
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import pandas as pd
 import hashlib
 from datetime import datetime
 import pytz
+import os
 
 # ══════════════════════════════════════════════
 #  CONFIGURAÇÕES
 # ══════════════════════════════════════════════
 ADMIN_PASSWORD = "copa2026admin"
 INVITE_CODE    = "PANGARE2026"
-DB_PATH        = "bolao.db"
 DEADLINE       = datetime(2026, 6, 10, 23, 59, 0)
 TZ_BR          = pytz.timezone("America/Sao_Paulo")
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 # ══════════════════════════════════════════════
 #  BANDEIRAS — URLs do FlagCDN (confiável)
@@ -113,31 +116,38 @@ MATCH_BY_ID = {m["id"]: m for m in ALL_MATCHES}
 GROUP_KEYS  = list(GROUPS.keys())
 
 # ══════════════════════════════════════════════
-#  BANCO DE DADOS
+#  BANCO DE DADOS — SUPABASE/POSTGRESQL
 # ══════════════════════════════════════════════
 def get_conn():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     return conn
 
 def init_db():
     conn = get_conn()
-    c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS participants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL, nickname TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))""")
-    c.execute("""CREATE TABLE IF NOT EXISTS guesses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nickname TEXT NOT NULL, match_id INTEGER NOT NULL,
-        home_goals INTEGER NOT NULL, away_goals INTEGER NOT NULL,
-        submitted_at TEXT DEFAULT (datetime('now')),
-        UNIQUE(nickname, match_id))""")
-    c.execute("""CREATE TABLE IF NOT EXISTS results (
+    cur = conn.cursor()
+    cur.execute("""CREATE TABLE IF NOT EXISTS participants (
+        nickname TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        password TEXT NOT NULL,
+        created_at TEXT DEFAULT (now()::text)
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS guesses (
+        nickname TEXT NOT NULL,
+        match_id INTEGER NOT NULL,
+        home_goals INTEGER NOT NULL,
+        away_goals INTEGER NOT NULL,
+        submitted_at TEXT DEFAULT (now()::text),
+        PRIMARY KEY (nickname, match_id)
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS results (
         match_id INTEGER PRIMARY KEY,
-        home_goals INTEGER NOT NULL, away_goals INTEGER NOT NULL,
-        updated_at TEXT DEFAULT (datetime('now')))""")
-    conn.commit(); conn.close()
+        home_goals INTEGER NOT NULL,
+        away_goals INTEGER NOT NULL,
+        updated_at TEXT DEFAULT (now()::text)
+    )""")
+    conn.commit()
+    cur.close()
+    conn.close()
 
 init_db()
 
@@ -156,54 +166,103 @@ def deadline_str():
 def register_user(name, nickname, password):
     conn = get_conn()
     try:
-        conn.execute("INSERT INTO participants (name, nickname, password) VALUES (?,?,?)",
-                     (name.strip(), nickname.strip().lower(), hash_pw(password)))
-        conn.commit(); conn.close(); return True, "Cadastro realizado!"
-    except sqlite3.IntegrityError:
-        conn.close(); return False, "Apelido já em uso. Escolha outro."
+        cur = conn.cursor()
+        cur.execute("INSERT INTO participants (name, nickname, password) VALUES (%s, %s, %s)",
+                    (name.strip(), nickname.strip().lower(), hash_pw(password)))
+        conn.commit()
+        cur.close(); conn.close()
+        return True, "Cadastro realizado!"
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
+        cur.close(); conn.close()
+        return False, "Apelido já em uso. Escolha outro."
 
 def login_user(nickname, password):
     conn = get_conn()
-    row = conn.execute("SELECT * FROM participants WHERE nickname=? AND password=?",
-                       (nickname.strip().lower(), hash_pw(password))).fetchone()
-    conn.close(); return dict(row) if row else None
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM participants WHERE nickname=%s AND password=%s",
+                (nickname.strip().lower(), hash_pw(password)))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    return dict(row) if row else None
 
 def save_guesses_batch(nickname, guesses_dict):
     conn = get_conn()
+    cur = conn.cursor()
     for mid, (h, a) in guesses_dict.items():
-        conn.execute("""INSERT INTO guesses (nickname,match_id,home_goals,away_goals) VALUES(?,?,?,?)
-            ON CONFLICT(nickname,match_id) DO UPDATE SET
-            home_goals=excluded.home_goals, away_goals=excluded.away_goals,
-            submitted_at=datetime('now')""", (nickname, mid, h, a))
-    conn.commit(); conn.close()
+        cur.execute("""INSERT INTO guesses (nickname, match_id, home_goals, away_goals)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (nickname, match_id) DO UPDATE SET
+            home_goals=EXCLUDED.home_goals, away_goals=EXCLUDED.away_goals,
+            submitted_at=now()::text""", (nickname, mid, h, a))
+    conn.commit()
+    cur.close(); conn.close()
 
 def get_guesses(nickname):
     conn = get_conn()
-    rows = conn.execute("SELECT match_id,home_goals,away_goals FROM guesses WHERE nickname=?", (nickname,)).fetchall()
-    conn.close(); return {r["match_id"]: (r["home_goals"], r["away_goals"]) for r in rows}
+    cur = conn.cursor()
+    cur.execute("SELECT match_id, home_goals, away_goals FROM guesses WHERE nickname=%s", (nickname,))
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return {r["match_id"]: (r["home_goals"], r["away_goals"]) for r in rows}
 
 def get_all_guesses():
     conn = get_conn()
-    rows = conn.execute("SELECT nickname,match_id,home_goals,away_goals FROM guesses").fetchall()
-    conn.close(); return rows
+    cur = conn.cursor()
+    cur.execute("SELECT nickname, match_id, home_goals, away_goals FROM guesses")
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return rows
 
 def save_result(match_id, home, away):
     conn = get_conn()
-    conn.execute("""INSERT INTO results (match_id,home_goals,away_goals) VALUES(?,?,?)
-        ON CONFLICT(match_id) DO UPDATE SET
-        home_goals=excluded.home_goals, away_goals=excluded.away_goals,
-        updated_at=datetime('now')""", (match_id, home, away))
-    conn.commit(); conn.close()
+    cur = conn.cursor()
+    cur.execute("""INSERT INTO results (match_id, home_goals, away_goals)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (match_id) DO UPDATE SET
+        home_goals=EXCLUDED.home_goals, away_goals=EXCLUDED.away_goals,
+        updated_at=now()::text""", (match_id, home, away))
+    conn.commit()
+    cur.close(); conn.close()
 
 def get_results():
     conn = get_conn()
-    rows = conn.execute("SELECT match_id,home_goals,away_goals FROM results").fetchall()
-    conn.close(); return {r["match_id"]: (r["home_goals"], r["away_goals"]) for r in rows}
+    cur = conn.cursor()
+    cur.execute("SELECT match_id, home_goals, away_goals FROM results")
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return {r["match_id"]: (r["home_goals"], r["away_goals"]) for r in rows}
 
 def get_all_participants():
     conn = get_conn()
-    rows = conn.execute("SELECT name,nickname,created_at FROM participants ORDER BY name").fetchall()
-    conn.close(); return [dict(r) for r in rows]
+    cur = conn.cursor()
+    cur.execute("SELECT name, nickname, created_at FROM participants ORDER BY name")
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return [dict(r) for r in rows]
+
+def reset_password_db(nickname, new_password):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE participants SET password=%s WHERE nickname=%s",
+                (hash_pw(new_password), nickname))
+    conn.commit()
+    cur.close(); conn.close()
+
+def delete_participant_db(nickname):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM guesses WHERE nickname=%s", (nickname,))
+    cur.execute("DELETE FROM participants WHERE nickname=%s", (nickname,))
+    conn.commit()
+    cur.close(); conn.close()
+
+def clear_results_db():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM results")
+    conn.commit()
+    cur.close(); conn.close()
 
 # ══════════════════════════════════════════════
 #  PONTUAÇÃO
@@ -238,7 +297,6 @@ def calc_ranking():
 # ══════════════════════════════════════════════
 st.set_page_config(page_title="Bolão Copa 2026", page_icon="⚽", layout="wide")
 
-# Imagem de fundo + logo personalizado
 st.markdown("""
 <style>
 .stApp {
@@ -341,7 +399,6 @@ with st.sidebar:
         st.markdown(f'<div class="locked-box">🔒 <b>Encerrado</b><br>{deadline_str()}</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="deadline-box">⏰ <b>Prazo:</b><br>{deadline_str()}</div>', unsafe_allow_html=True)
-    # Botão Admin fixo no rodapé da sidebar
     st.markdown("<div style='position:fixed;bottom:16px;left:8px;width:200px;'>", unsafe_allow_html=True)
     if not st.session_state.admin_logged:
         if st.button("🔐 Admin", key="admin_btn_fixed", use_container_width=True):
@@ -363,16 +420,13 @@ with st.sidebar:
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-
-
 # ══════════════════════════════════════════════
-#  LOGIN / CADASTRO (página padrão)
+#  LOGIN / CADASTRO
 # ══════════════════════════════════════════════
 if not st.session_state.user and not st.session_state.admin_logged:
     st.markdown("---")
     col_rank, col_login = st.columns([1.3, 1], gap="large")
 
-    # ── RANKING À ESQUERDA ──────────────────────
     with col_rank:
         st.markdown("### 🏆 Ranking")
         scores, _    = calc_ranking()
@@ -393,7 +447,6 @@ if not st.session_state.user and not st.session_state.admin_logged:
             results = get_results()
             st.caption(f"⚽ {len(results)} jogos com resultado | 👥 {len(participants)} participantes")
 
-    # ── LOGIN À DIREITA ──────────────────────────
     with col_login:
         st.markdown("### 🔑 Entrar")
         nick_l = st.text_input("Apelido", key="ln", placeholder="seu apelido")
@@ -433,7 +486,7 @@ if not st.session_state.user and not st.session_state.admin_logged:
                 st.session_state.auth_page = "login"; st.rerun()
 
 # ══════════════════════════════════════════════
-#  MEUS PALPITES — grupo a grupo com bandeiras
+#  MEUS PALPITES
 # ══════════════════════════════════════════════
 elif page == "📝 Meus Palpites":
     if not st.session_state.user: st.warning("Faça login primeiro."); st.stop()
@@ -450,20 +503,17 @@ elif page == "📝 Meus Palpites":
     my_guesses = get_guesses(user["nickname"])
     results    = get_results()
 
-    # Progresso
     pct = int(len(my_guesses) / len(ALL_MATCHES) * 100)
     st.markdown(f"Progresso: **{len(my_guesses)}/{len(ALL_MATCHES)}** jogos preenchidos")
     st.progress(pct / 100)
     st.markdown("")
 
-    # Grupo atual
     idx   = st.session_state.group_idx
     g     = GROUP_KEYS[idx]
     color = GROUP_COLORS[g]
     teams = GROUPS[g]
     matches_in_group = [m for m in ALL_MATCHES if m["group"] == g]
 
-    # Badge do grupo
     teams_with_flags = " &nbsp;·&nbsp; ".join(
         f'{flag_img(t, 20)} {t}' for t in teams
     )
@@ -481,7 +531,6 @@ elif page == "📝 Meus Palpites":
         existing = my_guesses.get(mid, (0, 0))
         real     = results.get(mid)
 
-        # Linha do jogo: [bandeira + nome] [input] × [input] [bandeira + nome]
         c1, c2, c3, c4, c5 = st.columns([4, 1.5, 0.4, 1.5, 4])
         with c1:
             st.markdown(
@@ -507,7 +556,6 @@ elif page == "📝 Meus Palpites":
                 unsafe_allow_html=True
             )
 
-        # Resultado real
         if real:
             pts, det = calc_points(h, a, real[0], real[1])
             det_str  = " | ".join(det) if det else "0 pontos"
@@ -527,7 +575,6 @@ elif page == "📝 Meus Palpites":
 
     st.divider()
 
-    # Navegação
     c_prev, c_info, c_next = st.columns([1, 2, 1])
     with c_prev:
         if idx > 0:
@@ -546,62 +593,7 @@ elif page == "📝 Meus Palpites":
             st.success("✅ Último grupo!")
 
 # ══════════════════════════════════════════════
-#  RANKING (removido do menu - mantido só para admin)
-# ══════════════════════════════════════════════
-elif page == "🏆 Ranking":
-    st.markdown("# 🏆 Ranking do Bolão")
-    scores, _ = calc_ranking()
-    participants = get_all_participants()
-    if not participants: st.info("Nenhum participante ainda."); st.stop()
-
-    nick_to_name  = {p["nickname"]: p["name"] for p in participants}
-    all_scores    = {p["nickname"]: scores.get(p["nickname"], 0) for p in participants}
-    sorted_scores = sorted(all_scores.items(), key=lambda x: -x[1])
-    medals = ["🥇","🥈","🥉"]
-
-    rows = [{"Pos": medals[i] if i<3 else f"{i+1}º",
-             "Apelido": nick, "Nome": nick_to_name.get(nick,""),
-             "Pontos": pts} for i,(nick,pts) in enumerate(sorted_scores)]
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True,
-                 column_config={"Pos": st.column_config.TextColumn(width="small"),
-                                "Pontos": st.column_config.NumberColumn(format="%d pts")})
-
-    st.divider()
-    st.markdown("### 🔍 Detalhes por participante")
-    results  = get_results()
-    options  = [f"{n} ({nick_to_name.get(n,'')})" for n,_ in sorted_scores]
-    selected = st.selectbox("Escolha", options)
-    if selected:
-        sel_nick   = selected.split(" (")[0]
-        my_guesses = get_guesses(sel_nick)
-        detail_rows = []
-        total = 0
-        for mid,(rh,ra) in results.items():
-            match = MATCH_BY_ID.get(mid)
-            if not match: continue
-            if mid in my_guesses:
-                gh,ga = my_guesses[mid]
-                pts,det = calc_points(gh,ga,rh,ra)
-                total += pts
-                detail_rows.append({"Grupo":f"Grupo {match['group']}",
-                    "Jogo":f"{match['home']} × {match['away']}",
-                    "Palpite":f"{gh}×{ga}","Real":f"{rh}×{ra}",
-                    "Pontos":pts,"Detalhe":" | ".join(det) if det else "—"})
-            else:
-                detail_rows.append({"Grupo":f"Grupo {match['group']}",
-                    "Jogo":f"{match['home']} × {match['away']}",
-                    "Palpite":"—","Real":f"{rh}×{ra}","Pontos":0,"Detalhe":"Sem palpite"})
-        if detail_rows:
-            st.markdown(f"**Total: {total} pontos**")
-            st.dataframe(pd.DataFrame(detail_rows), hide_index=True, use_container_width=True)
-        else:
-            st.info("Nenhum resultado lançado ainda.")
-
-# ══════════════════════════════════════════════
 #  RESULTADOS
-# ══════════════════════════════════════════════
-# ══════════════════════════════════════════════
-#  PÁGINA: RESULTADOS — meus palpites salvos
 # ══════════════════════════════════════════════
 elif page == "📊 Resultados":
     if not st.session_state.user:
@@ -619,7 +611,6 @@ elif page == "📊 Resultados":
         st.stop()
 
     import json
-    # Monta dicionário de palpites e resultados para o HTML
     palpites_data = {}
     resultados_data = {}
 
@@ -762,7 +753,7 @@ function renderGroup(g){
     if(r){
       const pts=calcPts(p[0],p[1],r[0],r[1]);
       if(p[0]===r[0]&&p[1]===r[1]) cls='correct';
-      ptsHtml=`<div class="pts-chip ${pts===0?'zero':''}">${pts>0?'+'+pts+'pts':'0pts'} | real:${r[0]}×${r[1]}</div>`;
+      ptsHtml=`<div class="pts-chip ${pts===0?'zero':''}">${pts>0?'+'+pts+'pts':'0pts'} | real:${r[0]}x${r[1]}</div>`;
     }
     return `<div class="match-row" style="flex-direction:column;display:block;padding:4px 0;border-bottom:1px solid #f5f5f5">
       <div style="display:grid;grid-template-columns:1fr 26px 10px 26px 1fr;align-items:center;gap:3px">
@@ -797,6 +788,9 @@ document.getElementById('groups-grid').innerHTML=Object.keys(GROUPS).map(g=>rend
     html = html.replace('__RESULTADOS__', resultados_json)
     st.components.v1.html(html, height=3400, scrolling=True)
 
+# ══════════════════════════════════════════════
+#  ADMIN
+# ══════════════════════════════════════════════
 if page == "🔐 Admin":
     st.markdown("# 🔐 Painel do Administrador")
     if not st.session_state.admin_logged:
@@ -861,14 +855,10 @@ if page == "🔐 Admin":
                     st.error("Senha deve ter ao menos 4 caracteres.")
                 else:
                     nick_reset = sel_reset.split(" — ")[0]
-                    conn = get_conn()
-                    conn.execute("UPDATE participants SET password=? WHERE nickname=?",
-                                 (hash_pw(nova_senha), nick_reset))
-                    conn.commit(); conn.close()
+                    reset_password_db(nick_reset, nova_senha)
                     st.success(f"✅ Senha de '{nick_reset}' resetada com sucesso!")
         else:
             st.info("Nenhum participante cadastrado ainda.")
-
 
     st.divider()
     st.markdown("### 📥 Exportar dados")
@@ -877,7 +867,6 @@ if page == "🔐 Admin":
         participants = get_all_participants()
         results      = get_results()
 
-        # Cabeçalho: Apelido, Nome, + um coluna por jogo, + Total de pontos
         header = ["Apelido", "Nome"]
         for match in ALL_MATCHES:
             header.append(f"G{match['group']}: {match['home']} x {match['away']}")
@@ -906,7 +895,6 @@ if page == "🔐 Admin":
             row.append(total_pts)
             rows.append(row)
 
-        # Linha de resultados reais
         real_row = ["RESULTADO REAL", ""]
         for match in ALL_MATCHES:
             real = results.get(match["id"])
@@ -927,14 +915,10 @@ if page == "🔐 Admin":
         st.dataframe(df_export, hide_index=True, use_container_width=True)
 
     st.divider()
-    st.divider()
     with st.expander("🗑️ Limpar todos os resultados"):
         st.warning("Isso apaga TODOS os placares lançados. Os palpites dos participantes são mantidos.")
         if st.button("🗑️ Confirmar e limpar resultados", type="primary"):
-            conn = get_conn()
-            conn.execute("DELETE FROM results")
-            conn.commit()
-            conn.close()
+            clear_results_db()
             st.success("✅ Todos os resultados foram apagados!")
             st.rerun()
 
@@ -945,8 +929,5 @@ if page == "🔐 Admin":
             rem = st.selectbox("Selecione", opt)
             if st.button("🗑️ Remover", type="primary"):
                 nick = rem.split(" — ")[0]
-                conn = get_conn()
-                conn.execute("DELETE FROM guesses WHERE nickname=?", (nick,))
-                conn.execute("DELETE FROM participants WHERE nickname=?", (nick,))
-                conn.commit(); conn.close()
+                delete_participant_db(nick)
                 st.success(f"'{nick}' removido!"); st.rerun()
