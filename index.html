@@ -197,7 +197,7 @@ async function doCadastro(){
   const exists=await sbGet(`participants?nickname=eq.${encodeURIComponent(nick)}&select=id`);
   if(exists.length){err.textContent='Nickname já em uso.';err.style.display='block';return}
   const r=await sbPost('participants',{nickname:nick,name:name,password:pass,invite_code:'PANGARE2026',grupos_pts:0});
-  if(!r.ok){err.textContent='Erro ao criar conta.';err.style.display='block';return}
+  if(!r.ok){const e=await r.json();err.textContent='Erro: '+(e.message||e.hint||JSON.stringify(e));err.style.display='block';return} 
   suc.textContent='Conta criada! Entrando...';suc.style.display='block';
   document.getElementById('inp-nick').value=nick;
   document.getElementById('inp-pass').value=pass;
