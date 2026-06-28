@@ -222,7 +222,7 @@ async function loadAll(){
 function renderMatches(){
   const el=document.getElementById('matches-list');
   if(!allMatches.length){el.innerHTML='<div class="loading">Nenhuma partida encontrada.</div>';return}
-  `<span class="deadline">⏱ Encerra na hora do jogo</span>`
+  let html='<div class="info-box">ℹ️ Palpites encerram na hora do jogo.</div>';
   let lastPhase='';
   allMatches.forEach(m=>{
     const closed=isDeadlinePassed(m.match_date)||m.status==='FINISHED';
@@ -238,7 +238,7 @@ function renderMatches(){
         <div class="team-name right">${tbd?'A definir':m.away_team}</div>
       </div>
       <div class="match-footer">
-        ${tbd?`<span class="deadline">🔒 Times a definir</span>`:closed?`<span class="deadline closed">🔒 Encerrado</span>`:`<span class="deadline">⏱ Encerra 1h antes</span>`}
+        ${tbd?`<span class="deadline">🔒 Times a definir</span>`:closed?`<span class="deadline closed">🔒 Encerrado</span>`:`<span class="deadline">⏱ Encerra na hora do jogo</span>`}
         ${!closed&&!tbd?`<span class="saved-badge" id="saved-${m.id}">✓ Salvo</span>`:''}
         ${m.status==='FINISHED'&&m.home_goals!=null?`<span style="font-size:11px;color:#888">Resultado: <strong>${m.home_goals}×${m.away_goals}</strong></span>`:''}
       </div>
