@@ -158,7 +158,7 @@ async function sbGet(p){return(await fetch(SB_URL+'/rest/v1/'+p,{headers:H})).js
 async function sbRpc(fn,b){return(await fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:H,body:JSON.stringify(b)})).json()}
 async function sbPost(p,b){return fetch(SB_URL+'/rest/v1/'+p,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(b)})}
 
-function isDeadlinePassed(d){return new Date()>new Date(new Date(d).getTime()-36e5)}
+function isDeadlinePassed(d){return new Date()>new Date(d)}
 function formatDate(d){const dt=new Date(d);return dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' · '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function calcPoints(gh,ga,rh,ra){const w=(h,a)=>h>a?'H':h<a?'A':'D';if(gh==rh&&ga==ra)return{pts:5,cat:'exact'};if(w(gh,ga)!==w(rh,ra))return{pts:0,cat:'miss'};if(gh==rh||ga==ra)return{pts:4,cat:'bonus'};return{pts:3,cat:'result'}}
 function ptsBadge(cat){const m={exact:['pts-exact','5 pts'],bonus:['pts-bonus','4 pts'],result:['pts-result','3 pts'],miss:['pts-miss','0 pts']};const[cls,label]=m[cat]||m.miss;return`<span class="pts-badge ${cls}">${label}</span>`}
