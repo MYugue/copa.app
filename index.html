@@ -255,7 +255,11 @@ async function saveGuess(matchId){
   if(!match||isDeadlinePassed(match.match_date))return;
   const body={participant_id:currentUser.id,match_id:matchId,home_guess:parseInt(h),away_guess:parseInt(a)};
   const r=await sbPost('knockout_guesses',body);
-  if(r.ok){myGuesses[matchId]={...body};const b=document.getElementById('saved-'+matchId);if(b){b.classList.add('show');setTimeout(()=>b.classList.remove('show'),2000)}}
+  console.log('status:', r.status, 'ok:', r.ok);
+  const b=document.getElementById('saved-'+matchId);
+  console.log('badge element:', b);
+  if(b) b.classList.add('show');
+  myGuesses[matchId]={...body};
 }
 
 function renderResults(){
