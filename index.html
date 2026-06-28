@@ -222,7 +222,7 @@ async function loadAll(){
 function renderMatches(){
   const el=document.getElementById('matches-list');
   if(!allMatches.length){el.innerHTML='<div class="loading">Nenhuma partida encontrada.</div>';return}
-  let html='<div class="info-box">ℹ️ Palpites encerram 1h antes de cada jogo.</div>';
+  `<span class="deadline">⏱ Encerra na hora do jogo</span>`
   let lastPhase='';
   allMatches.forEach(m=>{
     const closed=isDeadlinePassed(m.match_date)||m.status==='FINISHED';
