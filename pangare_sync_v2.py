@@ -39,13 +39,14 @@ TEAM_NAME_PT = {
 }
 
 def calc_points(gh, ga, rh, ra):
-    # 5 pts placar exato | 3 pts resultado certo | +1 gol de um time
+    # 5 pts placar exato | 3 pts resultado certo | +1 por gol de cada time (se resultado certo)
+    # erra resultado = 0 pts (sem bônus parcial)
     def w(h, a): return "HOME" if h > a else "AWAY" if h < a else "DRAW"
     if gh == rh and ga == ra: return 5, "exact"
     gw, rw = w(gh, ga), w(rh, ra)
     if gw != rw: return 0, "miss"
-    if gh == rh or ga == ra: return 4, "result+bonus"
-    return 3, "result"
+    bonus = (1 if gh == rh else 0) + (1 if ga == ra else 0)
+    return 3 + bonus, "result+bonus" if bonus else "result"
 
 def test_scoring():
     cases = [
@@ -53,12 +54,13 @@ def test_scoring():
         (0,0,0,0,5,"Placar exato (0x0)"),
         (1,1,1,1,5,"Placar exato (empate)"),
         (3,1,1,0,3,"Resultado certo sem gol igual (3x1 vs 1x0)"),
-        (3,1,3,0,4,"Resultado certo + gol de um time (1 fora)"),
-        (3,1,2,1,4,"Resultado certo + gol de um time (2x1)"),
+        (3,1,3,0,4,"Resultado certo + gol de um time (home)"),
+        (3,1,2,1,4,"Resultado certo + gol de um time (away)"),
         (3,1,4,2,3,"Resultado certo sem gol igual"),
         (1,1,0,0,3,"Empate vs empate (placar diferente)"),
         (2,0,0,1,0,"Errou vencedor"),
         (3,0,1,1,0,"Palpitou vitória, deu empate"),
+        (2,1,1,2,0,"Errou resultado (números invertidos) → 0 pts"),
     ]
     print(f"\n{'Palpite':<10} {'Resultado':<12} {'Esperado':<10} {'Obtido':<10} {'Status':<8} Descrição")
     print("─" * 75)
