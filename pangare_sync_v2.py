@@ -88,10 +88,29 @@ def fetch_knockout_matches():
     log.info(f"{len(matches)} partidas recebidas.")
     return matches
 
+def compute_real_score(m):
+    """Retorna (home_goals, away_goals) usando regularTime+extraTime quando
+    o jogo foi decidido na prorrogação ou pênaltis, senão usa fullTime."""
+    score = m.get("score", {})
+    duration = score.get("duration", "REGULAR")
+
+    if duration in ("EXTRA_TIME", "PENALTY_SHOOTOUT"):
+        rt = score.get("regularTime", {}) or {}
+        et = score.get("extraTime", {}) or {}
+        home_goals = (rt.get("home") or 0) + (et.get("home") or 0)
+        away_goals = (rt.get("away") or 0) + (et.get("away") or 0)
+    else:
+        ft = score.get("fullTime", {}) or {}
+        home_goals = ft.get("home")
+        away_goals = ft.get("away")
+
+    return home_goals, away_goals, duration
+
+
 def parse_match(m):
     stage = m.get("stage", "")
     if stage not in PHASE_MAP: return None
-    ft = m.get("score", {}).get("fullTime", {})
+    home_goals, away_goals, duration = compute_real_score(m)
     ht = m.get("homeTeam", {}).get("name")
     at = m.get("awayTeam", {}).get("name")
     return {
@@ -101,8 +120,8 @@ def parse_match(m):
         "match_date":  m.get("utcDate"),
         "home_team":   TEAM_NAME_PT.get(ht, ht),
         "away_team":   TEAM_NAME_PT.get(at, at),
-        "home_goals":  ft.get("home"),
-        "away_goals":  ft.get("away"),
+        "home_goals":  home_goals,
+        "away_goals":  away_goals,
         "status":      m.get("status", "SCHEDULED"),
     }
 
