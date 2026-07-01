@@ -67,11 +67,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:#e5e5e0}
 .scoring-guide{display:flex;gap:8px;flex-wrap:wrap;margin-top:.75rem}
 .info-box{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:1rem;background:#E6F1FB;color:#185FA5;display:flex;align-items:center;gap:8px}
-.center-wrap{max-width:360px;margin:2rem auto}
+.center-wrap{max-width:420px;margin:2rem auto}
 .hero{text-align:center;margin-bottom:2rem}
 .hero-title{font-size:26px;font-weight:500;margin-bottom:4px}
 .hero-sub{font-size:13px;color:#888}
 .footer-hint{font-size:11px;color:#aaa;text-align:center;margin-top:.75rem}
+.card-title{font-size:13px;font-weight:500;color:#666;margin-bottom:.75rem;display:flex;align-items:center;gap:6px}
 </style>
 </head>
 <body>
@@ -83,6 +84,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1
       <div class="hero-title">🏆 Pangaré</div>
       <div class="hero-sub">Mata-Mata · Copa do Mundo 2026</div>
     </div>
+
+    <div class="card">
+      <div class="card-title">📊 Ranking geral</div>
+      <table class="ranking-table">
+        <thead><tr><th>#</th><th>Nickname</th><th style="text-align:right">Grupos</th><th style="text-align:right">M-M</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody id="public-ranking-body"><tr><td colspan="5" style="text-align:center;padding:1rem;color:#888">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+
     <div id="login-form" class="card">
       <div class="field"><label>Nickname</label><input type="text" id="inp-nick" placeholder="seu apelido" autocomplete="off"></div>
       <div class="field"><label>Senha</label><input type="password" id="inp-pass" placeholder="sua senha" onkeydown="if(event.key==='Enter')doLogin()"></div>
@@ -166,6 +176,28 @@ function ptsBadge(cat){const m={exact:['pts-exact','5 pts'],bonus:['pts-bonus','
 function showCadastro(){document.getElementById('login-form').style.display='none';document.getElementById('cadastro-form').style.display='block'}
 function showLogin(){document.getElementById('cadastro-form').style.display='none';document.getElementById('login-form').style.display='block'}
 
+// Ranking público exibido na tela de login, antes do usuário logar
+async function loadPublicRanking(){
+  const body=document.getElementById('public-ranking-body');
+  try{
+    const parts=await sbGet('participants?select=id,nickname,grupos_pts&order=grupos_pts.desc');
+    const pts=await sbGet('knockout_points?select=participant_id,points');
+    const mmMap={};pts.forEach(p=>{mmMap[p.participant_id]=(mmMap[p.participant_id]||0)+p.points});
+    const ranked=parts.map(p=>({...p,mm:mmMap[p.id]||0,total:p.grupos_pts+(mmMap[p.id]||0)})).sort((a,b)=>b.total-a.total);
+    const colors=['#BA7517','#888780','#993C1D'];
+    body.innerHTML=ranked.map((p,i)=>`<tr>
+      <td style="font-weight:500;${colors[i]?'color:'+colors[i]:''}">${i+1}</td>
+      <td>${p.nickname}</td>
+      <td style="text-align:right;color:#888">${p.grupos_pts}</td>
+      <td style="text-align:right;color:#1D9E75;font-weight:500">+${p.mm}</td>
+      <td style="text-align:right;font-weight:500">${p.total}</td>
+    </tr>`).join('');
+  }catch(e){
+    body.innerHTML='<tr><td colspan="5" style="text-align:center;padding:1rem;color:#c0392b">Erro ao carregar ranking</td></tr>';
+  }
+}
+loadPublicRanking();
+
 async function doLogin(){
   const nick=document.getElementById('inp-nick').value.trim();
   const pass=document.getElementById('inp-pass').value;
@@ -204,7 +236,7 @@ async function doCadastro(){
   setTimeout(()=>{showLogin();doLogin()},1200);
 }
 
-function doLogout(){currentUser=null;allMatches=[];myGuesses={};document.getElementById('screen-app').classList.remove('active');document.getElementById('screen-login').classList.add('active');showLogin()}
+function doLogout(){currentUser=null;allMatches=[];myGuesses={};document.getElementById('screen-app').classList.remove('active');document.getElementById('screen-login').classList.add('active');showLogin();loadPublicRanking()}
 
 function switchTab(tab){
   ['palpites','resultados','ranking'].forEach((t,i)=>{document.querySelectorAll('.tab')[i].classList.toggle('active',t===tab)});
